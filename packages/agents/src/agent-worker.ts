@@ -1,4 +1,4 @@
-import type { AgentConfig, ModelEndpoint, AgentStatus } from '@fluxmaster/core';
+import type { AgentConfig, ModelEndpoint, AgentStatus, Message } from '@fluxmaster/core';
 import { createChildLogger } from '@fluxmaster/core';
 import type { ToolRegistry } from '@fluxmaster/tools';
 import type { IModelAdapter, AdapterMessage } from './adapters/adapter.interface.js';
@@ -155,6 +155,10 @@ export class AgentWorker {
       this._status = 'error';
       throw err;
     }
+  }
+
+  getHistory(): Message[] {
+    return this.sessionManager.getMessages(this.sessionId);
   }
 
   clearHistory(): void {

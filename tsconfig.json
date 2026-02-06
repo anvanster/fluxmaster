@@ -5,6 +5,7 @@
     { "path": "packages/auth" },
     { "path": "packages/tools" },
     { "path": "packages/agents" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "packages/server" }
   ]
 }

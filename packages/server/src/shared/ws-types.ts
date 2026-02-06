@@ -1,0 +1,17 @@
+import type { ContentBlock } from '@fluxmaster/core';
+
+// --- Client → Server ---
+
+export type WsClientMessage =
+  | { type: 'message'; agentId: string; text: string; requestId: string }
+  | { type: 'ping' };
+
+// --- Server → Client ---
+
+export type WsServerMessage =
+  | { type: 'text_delta'; text: string; requestId: string }
+  | { type: 'tool_use_start'; toolName: string; requestId: string }
+  | { type: 'tool_result'; toolName: string; content: string; isError: boolean; requestId: string }
+  | { type: 'message_complete'; text: string; usage: { inputTokens: number; outputTokens: number }; iterations: number; allContent: ContentBlock[]; requestId: string }
+  | { type: 'error'; error: string; requestId?: string }
+  | { type: 'pong' };

@@ -59,6 +59,10 @@ export class McpServerManager {
     return entry.toolNames.map(n => this.registry.get(n));
   }
 
+  listRunning(): string[] {
+    return Array.from(this.servers.keys());
+  }
+
   async stopAll(): Promise<void> {
     const names = Array.from(this.servers.keys());
     for (const name of names) {
