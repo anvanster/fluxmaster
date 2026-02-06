@@ -18,7 +18,7 @@ export interface IAuthProvider {
 }
 
 export const CopilotConfigSchema = z.object({
-  accountType: z.enum(['individual', 'business', 'enterprise']).default('enterprise'),
+  accountType: z.enum(['individual', 'business', 'enterprise']).default('individual'),
   port: z.number().int().positive().default(4141),
   rateLimit: z.number().positive().optional(),
   githubToken: z.string().optional(),

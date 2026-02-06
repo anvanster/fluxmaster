@@ -57,7 +57,7 @@ export function generateDefaultConfig(): FluxmasterConfig {
   return FluxmasterConfigSchema.parse({
     auth: {
       copilot: {
-        accountType: 'enterprise',
+        accountType: 'individual',
         port: 4141,
       },
       preferDirectApi: false,

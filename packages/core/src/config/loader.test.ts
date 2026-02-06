@@ -94,7 +94,7 @@ describe('loadConfig', () => {
 describe('generateDefaultConfig', () => {
   it('returns a valid default config', () => {
     const config = generateDefaultConfig();
-    expect(config.auth.copilot?.accountType).toBe('enterprise');
+    expect(config.auth.copilot?.accountType).toBe('individual');
     expect(config.auth.copilot?.port).toBe(4141);
     expect(config.agents.defaults.maxTokens).toBe(8192);
     expect(config.agents.list.length).toBe(1);
