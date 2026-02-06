@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import type { IAuthProvider, ModelEndpoint, CopilotConfig } from '@fluxmaster/core';
 import { AuthError, createChildLogger } from '@fluxmaster/core';
 import { isCopilotModel } from '../models/registry.js';
+import { detectGhToken } from '../token-detectors/gh-token-detector.js';
 
 const logger = createChildLogger('copilot-provider');
 
@@ -20,6 +21,15 @@ export class CopilotAuthProvider implements IAuthProvider {
   }
 
   async initialize(): Promise<void> {
+    // Auto-detect GitHub token if not explicitly configured
+    if (!this.config.githubToken) {
+      const result = await detectGhToken();
+      if (result) {
+        this.config.githubToken = result.token;
+        logger.info({ source: result.source }, 'Auto-detected GitHub token');
+      }
+    }
+
     if (await this.checkHealth()) {
       logger.info('Copilot API proxy already running');
       this.ready = true;

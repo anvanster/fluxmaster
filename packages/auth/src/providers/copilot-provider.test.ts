@@ -14,13 +14,22 @@ vi.mock('node:child_process', () => {
       proc.kill = vi.fn();
       return proc;
     }),
+    execFile: vi.fn(),
   };
 });
+
+// Mock gh token detector
+const mockDetectGhToken = vi.fn().mockResolvedValue(null);
+vi.mock('../token-detectors/gh-token-detector.js', () => ({
+  detectGhToken: (...args: unknown[]) => mockDetectGhToken(...args),
+}));
 
 describe('CopilotAuthProvider', () => {
   let provider: CopilotAuthProvider;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    mockDetectGhToken.mockResolvedValue(null);
     provider = new CopilotAuthProvider({
       accountType: 'enterprise',
       port: 4141,
@@ -94,6 +103,37 @@ describe('CopilotAuthProvider', () => {
   describe('name', () => {
     it('returns copilot', () => {
       expect(provider.name).toBe('copilot');
+    });
+  });
+
+  describe('gh token auto-detection', () => {
+    it('auto-detects gh token when not configured', async () => {
+      mockDetectGhToken.mockResolvedValue({ token: 'gho_auto', source: 'gh-cli' });
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const p = new CopilotAuthProvider({ accountType: 'enterprise', port: 4141 });
+      await p.initialize();
+
+      expect(mockDetectGhToken).toHaveBeenCalled();
+      expect(p.isReady()).toBe(true);
+      vi.unstubAllGlobals();
+    });
+
+    it('skips detection when githubToken is explicitly set', async () => {
+      mockDetectGhToken.mockResolvedValue({ token: 'gho_auto', source: 'gh-cli' });
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const p = new CopilotAuthProvider({
+        accountType: 'enterprise',
+        port: 4141,
+        githubToken: 'gho_explicit',
+      });
+      await p.initialize();
+
+      expect(mockDetectGhToken).not.toHaveBeenCalled();
+      vi.unstubAllGlobals();
     });
   });
 });

@@ -1,13 +1,15 @@
-import type { ModelEndpoint, AuthManagerConfig, CopilotConfig } from '@fluxmaster/core';
+import type { ModelEndpoint, AuthManagerConfig } from '@fluxmaster/core';
 import { ModelNotAvailableError, createChildLogger } from '@fluxmaster/core';
 import { CopilotAuthProvider } from './providers/copilot-provider.js';
 import { DirectApiProvider } from './providers/direct-api-provider.js';
+import { ClaudeCliProvider } from './providers/claude-cli-provider.js';
 import { inferProvider } from './models/registry.js';
 
 const logger = createChildLogger('auth-manager');
 
 export class AuthManager {
   private copilot?: CopilotAuthProvider;
+  private claudeCli: ClaudeCliProvider;
   private directApi: DirectApiProvider;
   private preferDirectApi: boolean;
 
@@ -16,6 +18,7 @@ export class AuthManager {
     if (config.copilot) {
       this.copilot = new CopilotAuthProvider(config.copilot);
     }
+    this.claudeCli = new ClaudeCliProvider();
     this.directApi = new DirectApiProvider();
   }
 
@@ -24,8 +27,13 @@ export class AuthManager {
       try {
         await this.copilot.initialize();
       } catch (err) {
-        logger.warn({ error: err }, 'Copilot initialization failed, will use direct API fallback');
+        logger.warn({ error: err }, 'Copilot initialization failed');
       }
+    }
+    try {
+      await this.claudeCli.initialize();
+    } catch (err) {
+      logger.warn({ error: err }, 'Claude CLI token detection failed');
     }
     await this.directApi.initialize();
   }
@@ -47,22 +55,29 @@ export class AuthManager {
       return { ...endpoint, model };
     }
 
-    // Path 3: Fallback to direct API
+    // Path 3: Claude CLI token for anthropic models
+    if (this.claudeCli.isModelAvailable(model)) {
+      logger.info({ model, path: 'claude-cli' }, 'Using Claude CLI token');
+      return this.claudeCli.getEndpoint(model);
+    }
+
+    // Path 4: Fallback to direct API
     if (this.directApi.isModelAvailable(model)) {
       logger.info({ model, path: 'direct-fallback' }, 'Using direct API (fallback)');
       return this.directApi.getEndpoint(model);
     }
 
-    // Path 4: No provider available
+    // Path 5: No provider available
     throw new ModelNotAvailableError(model);
   }
 
   async shutdown(): Promise<void> {
     await this.copilot?.shutdown();
+    await this.claudeCli.shutdown();
     await this.directApi.shutdown();
   }
 
-  getStatus(): { copilot: boolean; directProviders: string[] } {
+  getStatus(): { copilot: boolean; claudeCli: boolean; directProviders: string[] } {
     const directProviders: string[] = [];
     for (const p of ['anthropic', 'openai', 'google'] as const) {
       if (this.directApi.hasProvider(p)) {
@@ -71,6 +86,7 @@ export class AuthManager {
     }
     return {
       copilot: this.copilot?.isReady() ?? false,
+      claudeCli: this.claudeCli.isModelAvailable('claude-sonnet-4'),
       directProviders,
     };
   }

@@ -14,8 +14,20 @@ vi.mock('node:child_process', () => {
       proc.kill = vi.fn();
       return proc;
     }),
+    execFile: vi.fn(),
   };
 });
+
+// Mock gh token detector (used by CopilotAuthProvider)
+vi.mock('./token-detectors/gh-token-detector.js', () => ({
+  detectGhToken: vi.fn().mockResolvedValue(null),
+}));
+
+// Mock claude token detector (used by ClaudeCliProvider)
+const mockDetectClaude = vi.fn().mockResolvedValue(null);
+vi.mock('./token-detectors/claude-token-detector.js', () => ({
+  detectClaudeToken: (...args: unknown[]) => mockDetectClaude(...args),
+}));
 
 // Mock fetch globally for copilot health checks
 const fetchMock = vi.fn();
@@ -26,6 +38,7 @@ describe('AuthManager', () => {
 
   beforeEach(() => {
     fetchMock.mockReset();
+    mockDetectClaude.mockReset().mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -53,7 +66,6 @@ describe('AuthManager', () => {
     it('falls back to direct API when Copilot is not configured', async () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
 
-      // No copilot config provided
       const manager = new AuthManager({
         preferDirectApi: false,
       });
@@ -67,7 +79,6 @@ describe('AuthManager', () => {
     });
 
     it('falls back to direct API when Copilot proxy fails to start', async () => {
-      // Health check always fails -> copilot init fails
       fetchMock.mockRejectedValue(new Error('connection refused'));
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
 
@@ -77,7 +88,6 @@ describe('AuthManager', () => {
       });
       await manager.initialize();
 
-      // Copilot failed to start, should fall back to direct API
       const endpoint = await manager.getEndpoint('claude-sonnet-4');
       expect(endpoint.provider).toBe('anthropic');
       expect(endpoint.apiKey).toBe('sk-ant-test');
@@ -103,6 +113,55 @@ describe('AuthManager', () => {
     });
   });
 
+  describe('routing - Claude CLI token', () => {
+    it('routes via Claude CLI when token detected and no copilot', async () => {
+      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'claude-cli' });
+
+      const manager = new AuthManager({
+        preferDirectApi: false,
+      });
+      await manager.initialize();
+
+      const endpoint = await manager.getEndpoint('claude-sonnet-4');
+      expect(endpoint.provider).toBe('anthropic');
+      expect(endpoint.apiKey).toBe('sk-ant-claude');
+      expect(endpoint.baseUrl).toBe('https://api.anthropic.com');
+
+      await manager.shutdown();
+    });
+
+    it('prefers Copilot over Claude CLI when both available', async () => {
+      fetchMock.mockResolvedValue({ ok: true });
+      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'claude-cli' });
+
+      const manager = new AuthManager({
+        copilot: { accountType: 'enterprise', port: 4141 },
+        preferDirectApi: false,
+      });
+      await manager.initialize();
+
+      const endpoint = await manager.getEndpoint('claude-sonnet-4');
+      expect(endpoint.provider).toBe('copilot');
+
+      await manager.shutdown();
+    });
+
+    it('does not use Claude CLI for non-anthropic models', async () => {
+      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'claude-cli' });
+      process.env.OPENAI_API_KEY = 'sk-openai-test';
+
+      const manager = new AuthManager({
+        preferDirectApi: false,
+      });
+      await manager.initialize();
+
+      const endpoint = await manager.getEndpoint('gpt-5');
+      expect(endpoint.provider).toBe('openai');
+
+      await manager.shutdown();
+    });
+  });
+
   describe('error cases', () => {
     it('throws ModelNotAvailableError when no provider can serve model', async () => {
       delete process.env.ANTHROPIC_API_KEY;
@@ -122,8 +181,9 @@ describe('AuthManager', () => {
   });
 
   describe('getStatus', () => {
-    it('reports copilot and direct providers', async () => {
+    it('reports copilot, claude CLI, and direct providers', async () => {
       fetchMock.mockResolvedValue({ ok: true });
+      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'claude-cli' });
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
 
       const manager = new AuthManager({
@@ -134,6 +194,7 @@ describe('AuthManager', () => {
 
       const status = manager.getStatus();
       expect(status.copilot).toBe(true);
+      expect(status.claudeCli).toBe(true);
       expect(status.directProviders).toContain('anthropic');
 
       await manager.shutdown();
