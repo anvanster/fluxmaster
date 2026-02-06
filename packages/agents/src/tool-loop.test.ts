@@ -174,6 +174,68 @@ describe('runToolLoop', () => {
     expect(result.iterations).toBe(2);
   });
 
+  it('retries on retryable error then succeeds', async () => {
+    let callCount = 0;
+    const adapter: IModelAdapter = {
+      provider: 'mock',
+      sendMessage: vi.fn(async () => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error('429 Rate limit exceeded');
+        }
+        return {
+          content: [{ type: 'text' as const, text: 'Success after retry' }],
+          stopReason: 'end_turn' as const,
+          usage: { inputTokens: 10, outputTokens: 5 },
+        };
+      }),
+    };
+    const registry = new ToolRegistry();
+
+    const result = await runToolLoop(
+      [{ role: 'user', content: 'Hi' }],
+      {
+        adapter,
+        model: 'test-model',
+        tools: [],
+        toolRegistry: registry,
+        maxTokens: 1024,
+        temperature: 0.7,
+        retryOptions: { baseDelayMs: 1 },
+      },
+    );
+
+    expect(result.text).toBe('Success after retry');
+    expect(callCount).toBe(2);
+  });
+
+  it('does not retry non-retryable errors', async () => {
+    const adapter: IModelAdapter = {
+      provider: 'mock',
+      sendMessage: vi.fn(async () => {
+        throw new Error('400 Bad Request');
+      }),
+    };
+    const registry = new ToolRegistry();
+
+    await expect(
+      runToolLoop(
+        [{ role: 'user', content: 'Hi' }],
+        {
+          adapter,
+          model: 'test-model',
+          tools: [],
+          toolRegistry: registry,
+          maxTokens: 1024,
+          temperature: 0.7,
+          retryOptions: { baseDelayMs: 1 },
+        },
+      ),
+    ).rejects.toThrow('400 Bad Request');
+
+    expect(adapter.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it('stops looping after maxIterations', async () => {
     // Always returns tool_use
     const adapter = createMockAdapter(

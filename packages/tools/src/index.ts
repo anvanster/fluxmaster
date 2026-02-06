@@ -3,6 +3,7 @@ export { readFileTool, writeFileTool, listFilesTool } from './filesystem/index.j
 export { bashExecuteTool } from './bash/index.js';
 export { McpClient, McpServerManager } from './mcp/index.js';
 export { BrowserManager, createBrowserTools } from './browser/index.js';
+export { PluginLoader } from './plugins/index.js';
 
 import { ToolRegistry } from './registry.js';
 import { readFileTool, writeFileTool, listFilesTool } from './filesystem/index.js';

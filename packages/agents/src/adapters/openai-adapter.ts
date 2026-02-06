@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { ContentBlock, OpenAIToolFormat } from '@fluxmaster/core';
-import type { IModelAdapter, SendMessageOptions, ModelResponse, AdapterMessage } from './adapter.interface.js';
+import type { IModelAdapter, SendMessageOptions, ModelResponse, AdapterMessage, StreamEvent } from './adapter.interface.js';
 
 export class OpenAIAdapter implements IModelAdapter {
   readonly provider = 'openai';
@@ -37,6 +37,73 @@ export class OpenAIAdapter implements IModelAdapter {
         outputTokens: response.usage?.completion_tokens ?? 0,
       },
     };
+  }
+
+  async *sendMessageStream(options: SendMessageOptions): AsyncIterable<StreamEvent> {
+    const messages = this.convertMessages(options.messages, options.systemPrompt);
+
+    const stream = await this.client.chat.completions.create({
+      model: options.model,
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
+      tools: options.tools as OpenAIToolFormat[],
+      messages,
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+
+    const toolCalls = new Map<number, { id: string; name: string; args: string }>();
+    let finishReason: string | null = null;
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      finishReason = chunk.choices[0]?.finish_reason ?? finishReason;
+
+      if (delta?.content) {
+        yield { type: 'text_delta', text: delta.content };
+      }
+
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          if (!toolCalls.has(tc.index)) {
+            toolCalls.set(tc.index, { id: tc.id || '', name: tc.function?.name || '', args: '' });
+            yield {
+              type: 'tool_use_start',
+              toolUse: { id: tc.id || '', name: tc.function?.name || '' },
+            };
+          }
+          const existing = toolCalls.get(tc.index)!;
+          if (tc.id) existing.id = tc.id;
+          if (tc.function?.name) existing.name = tc.function.name;
+          if (tc.function?.arguments) {
+            existing.args += tc.function.arguments;
+            yield { type: 'tool_use_delta', text: tc.function.arguments };
+          }
+        }
+      }
+
+      // Usage is sent in the final chunk when stream_options.include_usage is true
+      if (chunk.usage) {
+        // Emit tool_use_end events for accumulated tool calls
+        for (const [, tc] of toolCalls) {
+          let parsedInput: unknown;
+          try { parsedInput = JSON.parse(tc.args); } catch { parsedInput = tc.args; }
+          yield {
+            type: 'tool_use_end',
+            toolUse: { id: tc.id, name: tc.name, input: parsedInput },
+          };
+        }
+
+        yield {
+          type: 'done',
+          stopReason: this.mapFinishReason(finishReason),
+          usage: {
+            inputTokens: chunk.usage.prompt_tokens ?? 0,
+            outputTokens: chunk.usage.completion_tokens ?? 0,
+          },
+        };
+      }
+    }
   }
 
   private convertMessages(

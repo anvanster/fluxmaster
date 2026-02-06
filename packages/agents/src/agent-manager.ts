@@ -5,6 +5,7 @@ import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
 import { AgentWorker } from './agent-worker.js';
 import { SessionManager } from './session/session-manager.js';
 import type { ToolLoopResult } from './tool-loop.js';
+import type { StreamEvent } from './adapters/adapter.interface.js';
 
 const logger = createChildLogger('agent-manager');
 
@@ -80,6 +81,18 @@ export class AgentManager {
       throw new AgentNotFoundError(agentId);
     }
     return worker.process(message);
+  }
+
+  async routeMessageStream(
+    agentId: string,
+    message: string,
+    onStreamEvent?: (event: StreamEvent) => void,
+  ): Promise<ToolLoopResult> {
+    const worker = this.workers.get(agentId);
+    if (!worker) {
+      throw new AgentNotFoundError(agentId);
+    }
+    return worker.processStream(message, onStreamEvent);
   }
 
   killAgent(agentId: string): void {

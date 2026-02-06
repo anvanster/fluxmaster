@@ -32,3 +32,5 @@ export type {
 
 export type { FluxmasterConfig, McpServerConfig, BrowserConfig } from './config.js';
 export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema } from './config.js';
+
+export type { FluxmasterPlugin, PluginConfig } from './plugin.js';

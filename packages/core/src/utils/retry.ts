@@ -3,6 +3,7 @@ export interface RetryOptions {
   baseDelayMs: number;
   maxDelayMs?: number;
   signal?: AbortSignal;
+  shouldRetry?: (err: unknown) => boolean;
 }
 
 const DEFAULT_OPTIONS: RetryOptions = {
@@ -25,6 +26,10 @@ export async function retry<T>(
       lastError = err instanceof Error ? err : new Error(String(err));
 
       if (attempt === opts.maxAttempts) {
+        break;
+      }
+
+      if (opts.shouldRetry && !opts.shouldRetry(err)) {
         break;
       }
 

@@ -33,6 +33,17 @@ const AgentConfigSchema = z.object({
   mcpServers: z.array(McpServerConfigSchema).default([]),
 });
 
+const RetryConfigSchema = z.object({
+  maxAttempts: z.number().int().positive().default(3),
+  baseDelayMs: z.number().int().positive().default(1000),
+  maxDelayMs: z.number().int().positive().default(30000),
+}).default({});
+
+const PluginConfigSchema = z.object({
+  package: z.string().min(1),
+  config: z.record(z.unknown()).default({}),
+});
+
 export const FluxmasterConfigSchema = z.object({
   auth: z.object({
     copilot: CopilotConfigSchema.optional(),
@@ -49,6 +60,8 @@ export const FluxmasterConfigSchema = z.object({
     global: z.array(McpServerConfigSchema).default([]),
   }).default({}),
   browser: BrowserConfigSchema.optional(),
+  retry: RetryConfigSchema,
+  plugins: z.array(PluginConfigSchema).default([]),
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;

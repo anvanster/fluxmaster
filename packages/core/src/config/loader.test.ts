@@ -156,12 +156,88 @@ describe('loadConfig', () => {
     expect(loaded.browser?.viewport.width).toBe(1280);
   });
 
+  it('resolves file: systemPrompt from relative path', async () => {
+    const promptsDir = path.join(tmpDir, 'prompts');
+    await fs.mkdir(promptsDir);
+    await fs.writeFile(path.join(promptsDir, 'agent.md'), 'You are an expert coder.');
+
+    const config = {
+      auth: {},
+      agents: {
+        list: [{
+          id: 'coder',
+          model: 'claude-sonnet-4',
+          tools: [],
+          systemPrompt: 'file:prompts/agent.md',
+        }],
+      },
+    };
+    const configPath = path.join(tmpDir, 'fileprompt.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.agents.list[0].systemPrompt).toBe('You are an expert coder.');
+  });
+
+  it('keeps inline systemPrompt unchanged', async () => {
+    const config = {
+      auth: {},
+      agents: {
+        list: [{
+          id: 'default',
+          model: 'claude-sonnet-4',
+          tools: [],
+          systemPrompt: 'You are a helpful assistant.',
+        }],
+      },
+    };
+    const configPath = path.join(tmpDir, 'inline.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.agents.list[0].systemPrompt).toBe('You are a helpful assistant.');
+  });
+
   it('defaults mcpServers to empty global array', async () => {
     const configPath = path.join(tmpDir, 'nomcp.json');
     await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
 
     const loaded = await loadConfig(configPath);
     expect(loaded.mcpServers.global).toEqual([]);
+  });
+
+  it('applies retry config defaults', async () => {
+    const configPath = path.join(tmpDir, 'retry.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.retry.maxAttempts).toBe(3);
+    expect(loaded.retry.baseDelayMs).toBe(1000);
+    expect(loaded.retry.maxDelayMs).toBe(30000);
+  });
+
+  it('loads config with plugins section', async () => {
+    const config = {
+      auth: {},
+      plugins: [
+        { package: '@fluxmaster/plugin-git', config: { token: 'abc' } },
+      ],
+    };
+    const configPath = path.join(tmpDir, 'plugins.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.plugins).toHaveLength(1);
+    expect(loaded.plugins[0].package).toBe('@fluxmaster/plugin-git');
+    expect(loaded.plugins[0].config).toEqual({ token: 'abc' });
+  });
+
+  it('defaults plugins to empty array', async () => {
+    const configPath = path.join(tmpDir, 'noplugins.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.plugins).toEqual([]);
   });
 });
 

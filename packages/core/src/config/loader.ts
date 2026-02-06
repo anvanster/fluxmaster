@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { FluxmasterConfigSchema, type FluxmasterConfig } from '../types/config.js';
 import { ConfigNotFoundError, ConfigValidationError } from '../errors/errors.js';
+import { resolvePrompt } from '../utils/load-prompt.js';
 
 function expandEnvVars(value: string): string {
   return value.replace(/\$\{(\w+)\}/g, (_, name) => {
@@ -48,6 +49,12 @@ export async function loadConfig(configPath: string): Promise<FluxmasterConfig> 
 
   if (!result.success) {
     throw new ConfigValidationError(result.error.issues);
+  }
+
+  // Resolve file: prompts for each agent
+  const configDir = path.dirname(absolutePath);
+  for (const agent of result.data.agents.list) {
+    agent.systemPrompt = await resolvePrompt(agent.systemPrompt, configDir);
   }
 
   return result.data;

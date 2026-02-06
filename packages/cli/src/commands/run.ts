@@ -3,7 +3,7 @@ import * as readline from 'node:readline/promises';
 import { loadConfig, type FluxmasterConfig } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
 import { AgentManager } from '@fluxmaster/agents';
-import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools } from '@fluxmaster/tools';
+import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools, PluginLoader } from '@fluxmaster/tools';
 
 export function runCommand(): Command {
   const cmd = new Command('run');
@@ -12,7 +12,9 @@ export function runCommand(): Command {
     .description('Start an interactive agent session')
     .option('--config <path>', 'Path to config file', 'fluxmaster.config.json')
     .option('--agent <id>', 'Agent ID to use', 'default')
-    .action(async (options: { config: string; agent: string }) => {
+    .option('--stream', 'Enable streaming output', true)
+    .option('--no-stream', 'Disable streaming output')
+    .action(async (options: { config: string; agent: string; stream: boolean }) => {
       // Load config
       let config: FluxmasterConfig;
       try {
@@ -49,6 +51,18 @@ export function runCommand(): Command {
       // Start global MCP servers
       await agentManager.initializeMcp();
 
+      // Load plugins
+      const pluginLoader = new PluginLoader();
+      for (const pluginConfig of config.plugins ?? []) {
+        try {
+          const plugin = await pluginLoader.load(pluginConfig.package, pluginConfig.config);
+          await pluginLoader.register(plugin, toolRegistry);
+          console.log(`Plugin "${plugin.name}" loaded.`);
+        } catch (err) {
+          console.error(`Failed to load plugin "${pluginConfig.package}": ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
       // Initialize browser if configured
       let browserManager: BrowserManager | null = null;
       if (config.browser) {
@@ -71,7 +85,7 @@ export function runCommand(): Command {
       let totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       console.log(`Agent "${agentConfig.id}" ready (model: ${agentConfig.model})`);
-      console.log('Commands: /exit, /clear, /tools, /usage, /agents, /agent <cmd>, /broadcast\n');
+      console.log('Commands: /exit, /clear, /tools, /usage, /agents, /agent <cmd>, /broadcast, /plugins\n');
 
       // REPL loop
       const rl = readline.createInterface({
@@ -227,6 +241,20 @@ export function runCommand(): Command {
             continue;
           }
 
+          if (trimmed === '/plugins') {
+            const plugins = pluginLoader.list();
+            if (plugins.length === 0) {
+              console.log('No plugins loaded.');
+            } else {
+              console.log('Loaded plugins:');
+              for (const p of plugins) {
+                const toolCount = p.tools?.length ?? 0;
+                console.log(`  - ${p.name}@${p.version} (${toolCount} tools)`);
+              }
+            }
+            continue;
+          }
+
           if (trimmed.startsWith('/broadcast ')) {
             const broadcastMsg = trimmed.slice('/broadcast '.length).trim();
             if (!broadcastMsg) {
@@ -250,10 +278,23 @@ export function runCommand(): Command {
 
           // Send message to active agent
           try {
-            const result = await agentManager.routeMessage(activeAgentId, trimmed);
+            let result;
+            if (options.stream) {
+              process.stdout.write('\nassistant> ');
+              result = await agentManager.routeMessageStream(activeAgentId, trimmed, (event) => {
+                if (event.type === 'text_delta' && event.text) {
+                  process.stdout.write(event.text);
+                } else if (event.type === 'tool_use_start' && event.toolUse) {
+                  process.stdout.write(`\n[calling ${event.toolUse.name}...]\n`);
+                }
+              });
+              process.stdout.write('\n\n');
+            } else {
+              result = await agentManager.routeMessage(activeAgentId, trimmed);
+              console.log(`\nassistant> ${result.text}\n`);
+            }
             totalUsage.inputTokens += result.usage.inputTokens;
             totalUsage.outputTokens += result.usage.outputTokens;
-            console.log(`\nassistant> ${result.text}\n`);
           } catch (err) {
             console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
           }
@@ -261,6 +302,7 @@ export function runCommand(): Command {
       } finally {
         rl.close();
         agentManager.killAll();
+        await pluginLoader.unloadAll(toolRegistry);
         await mcpServerManager.stopAll();
         if (browserManager) {
           await browserManager.close();

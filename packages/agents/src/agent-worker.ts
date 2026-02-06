@@ -5,6 +5,8 @@ import type { IModelAdapter, AdapterMessage } from './adapters/adapter.interface
 import { AnthropicAdapter } from './adapters/anthropic-adapter.js';
 import { OpenAIAdapter } from './adapters/openai-adapter.js';
 import { runToolLoop, type ToolLoopResult } from './tool-loop.js';
+import { runToolLoopStream } from './tool-loop-stream.js';
+import type { StreamEvent } from './adapters/adapter.interface.js';
 import { SessionManager } from './session/session-manager.js';
 
 const logger = createChildLogger('agent-worker');
@@ -87,6 +89,60 @@ export class AgentWorker {
       });
 
       // Store assistant response in session
+      this.sessionManager.addMessage(this.sessionId, {
+        role: 'assistant',
+        content: result.text,
+        timestamp: new Date(),
+      });
+
+      this._status = 'idle';
+      return result;
+    } catch (err) {
+      this._status = 'error';
+      throw err;
+    }
+  }
+
+  async processStream(
+    userMessage: string,
+    onStreamEvent?: (event: StreamEvent) => void,
+  ): Promise<ToolLoopResult> {
+    this._status = 'processing';
+    logger.debug({ agentId: this.config.id, message: userMessage.slice(0, 100) }, 'Processing message (streaming)');
+
+    try {
+      const session = this.sessionManager.get(this.sessionId);
+      if (!session) {
+        throw new Error(`Session ${this.sessionId} not found`);
+      }
+
+      this.sessionManager.addMessage(this.sessionId, {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date(),
+      });
+
+      const adapterMessages: AdapterMessage[] = session.messages.map(msg => ({
+        role: msg.role === 'tool' ? 'user' : msg.role as 'user' | 'assistant',
+        content: msg.content,
+      }));
+
+      const isAnthropic = this.adapter.provider === 'anthropic';
+      const tools = isAnthropic
+        ? this.toolRegistry.toAnthropicFormat(this.config.tools.length > 0 ? this.config.tools : undefined)
+        : this.toolRegistry.toOpenAIFormat(this.config.tools.length > 0 ? this.config.tools : undefined);
+
+      const result = await runToolLoopStream(adapterMessages, {
+        adapter: this.adapter,
+        model: this.config.model,
+        systemPrompt: this.config.systemPrompt,
+        tools,
+        toolRegistry: this.toolRegistry,
+        maxTokens: this.config.maxTokens ?? 8192,
+        temperature: this.config.temperature ?? 0.7,
+        onStreamEvent,
+      });
+
       this.sessionManager.addMessage(this.sessionId, {
         role: 'assistant',
         content: result.text,

@@ -42,6 +42,32 @@ describe('retry', () => {
     })).rejects.toThrow('Retry aborted');
   });
 
+  it('stops retrying when shouldRetry returns false', async () => {
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new Error('retryable'))
+      .mockRejectedValueOnce(new Error('fatal'))
+      .mockResolvedValue('ok');
+
+    const shouldRetry = (err: unknown) =>
+      err instanceof Error && err.message === 'retryable';
+
+    await expect(retry(fn, { maxAttempts: 5, baseDelayMs: 1, shouldRetry }))
+      .rejects.toThrow('fatal');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries when shouldRetry returns true', async () => {
+    const fn = vi.fn()
+      .mockRejectedValueOnce(new Error('retryable'))
+      .mockResolvedValue('ok');
+
+    const shouldRetry = () => true;
+
+    const result = await retry(fn, { maxAttempts: 3, baseDelayMs: 1, shouldRetry });
+    expect(result).toBe('ok');
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
   it('applies exponential backoff', async () => {
     const delays: number[] = [];
     const originalSetTimeout = globalThis.setTimeout;

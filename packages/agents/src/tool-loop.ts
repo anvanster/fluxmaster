@@ -1,5 +1,6 @@
 import type { ContentBlock, ToolUseBlock, AnthropicToolFormat, OpenAIToolFormat } from '@fluxmaster/core';
-import { createChildLogger } from '@fluxmaster/core';
+import { createChildLogger, retry, type RetryOptions } from '@fluxmaster/core';
+import { isRetryableError } from '@fluxmaster/core';
 import type { ToolRegistry } from '@fluxmaster/tools';
 import type { IModelAdapter, AdapterMessage, ModelResponse } from './adapters/adapter.interface.js';
 
@@ -14,6 +15,7 @@ export interface ToolLoopOptions {
   maxTokens: number;
   temperature: number;
   maxIterations?: number;
+  retryOptions?: Partial<RetryOptions>;
 }
 
 export interface ToolLoopResult {
@@ -34,14 +36,23 @@ export async function runToolLoop(
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     logger.debug({ iteration, messageCount: messages.length }, 'Sending to model');
 
-    const response: ModelResponse = await options.adapter.sendMessage({
-      model: options.model,
-      messages,
-      systemPrompt: options.systemPrompt,
-      tools: options.tools,
-      maxTokens: options.maxTokens,
-      temperature: options.temperature,
-    });
+    const response: ModelResponse = await retry(
+      () => options.adapter.sendMessage({
+        model: options.model,
+        messages,
+        systemPrompt: options.systemPrompt,
+        tools: options.tools,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature,
+      }),
+      {
+        maxAttempts: options.retryOptions?.maxAttempts ?? 3,
+        baseDelayMs: options.retryOptions?.baseDelayMs ?? 1000,
+        maxDelayMs: options.retryOptions?.maxDelayMs,
+        signal: options.retryOptions?.signal,
+        shouldRetry: isRetryableError,
+      },
+    );
 
     totalUsage.inputTokens += response.usage.inputTokens;
     totalUsage.outputTokens += response.usage.outputTokens;

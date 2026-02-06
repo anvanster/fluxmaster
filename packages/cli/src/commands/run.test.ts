@@ -55,6 +55,12 @@ const mockRouteMessage = vi.fn().mockResolvedValue({
   iterations: 1,
   allContent: [],
 });
+const mockRouteMessageStream = vi.fn().mockResolvedValue({
+  text: 'Hello! How can I help?',
+  usage: { inputTokens: 100, outputTokens: 50 },
+  iterations: 1,
+  allContent: [],
+});
 const mockKillAll = vi.fn();
 const mockKillAgent = vi.fn();
 const mockGetAgent = vi.fn().mockReturnValue({
@@ -70,6 +76,7 @@ vi.mock('@fluxmaster/agents', () => ({
   AgentManager: vi.fn().mockImplementation(() => ({
     spawnAgent: mockSpawnAgent,
     routeMessage: mockRouteMessage,
+    routeMessageStream: mockRouteMessageStream,
     killAll: mockKillAll,
     killAgent: mockKillAgent,
     getAgent: mockGetAgent,
@@ -92,6 +99,12 @@ vi.mock('@fluxmaster/tools', () => ({
     stopServer: vi.fn().mockResolvedValue(undefined),
     stopAll: vi.fn().mockResolvedValue(undefined),
     getToolsForServer: vi.fn().mockReturnValue([]),
+  })),
+  PluginLoader: vi.fn().mockImplementation(() => ({
+    load: vi.fn().mockResolvedValue({ name: 'test', version: '1.0.0', tools: [] }),
+    register: vi.fn().mockResolvedValue(undefined),
+    list: vi.fn().mockReturnValue([]),
+    unloadAll: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
@@ -143,8 +156,8 @@ describe('fluxmaster run', () => {
 
     // Agent should have been spawned
     expect(mockSpawnAgent).toHaveBeenCalled();
-    // First message should be routed to agent
-    expect(mockRouteMessage).toHaveBeenCalledWith('default', 'hello');
+    // First message should be routed to agent (streaming by default)
+    expect(mockRouteMessageStream).toHaveBeenCalledWith('default', 'hello', expect.any(Function));
     // Readline should be closed
     expect(mockClose).toHaveBeenCalled();
     // Auth should be shut down
@@ -300,8 +313,8 @@ describe('fluxmaster run', () => {
     await app.parseAsync(['node', 'fluxmaster', 'run']);
 
     expect(consoleSpy).toHaveBeenCalledWith('Switched to agent "researcher".');
-    // Message after switch routes to researcher
-    expect(mockRouteMessage).toHaveBeenCalledWith('researcher', 'hello after switch');
+    // Message after switch routes to researcher (streaming by default)
+    expect(mockRouteMessageStream).toHaveBeenCalledWith('researcher', 'hello after switch', expect.any(Function));
     consoleSpy.mockRestore();
   });
 
