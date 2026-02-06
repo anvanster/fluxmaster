@@ -25,16 +25,17 @@ describe('ClaudeCliProvider', () => {
   });
 
   it('detects token during initialization', async () => {
-    mockDetect.mockResolvedValue({ token: 'sk-ant-test', source: 'claude-cli' });
+    mockDetect.mockResolvedValue({ token: 'sk-ant-test', source: 'credentials-file' });
 
     const provider = new ClaudeCliProvider();
     await provider.initialize();
 
     expect(provider.isModelAvailable('claude-sonnet-4')).toBe(true);
+    expect(provider.isDetected()).toBe(true);
   });
 
   it('isModelAvailable returns true only for anthropic models', async () => {
-    mockDetect.mockResolvedValue({ token: 'sk-ant-test', source: 'claude-cli' });
+    mockDetect.mockResolvedValue({ token: 'sk-ant-test', source: 'credentials-file' });
 
     const provider = new ClaudeCliProvider();
     await provider.initialize();
@@ -45,7 +46,7 @@ describe('ClaudeCliProvider', () => {
     expect(provider.isModelAvailable('gemini-3-pro')).toBe(false);
   });
 
-  it('getEndpoint returns anthropic endpoint with detected token', async () => {
+  it('getEndpoint returns anthropic endpoint with credentials-file token', async () => {
     mockDetect.mockResolvedValue({ token: 'sk-ant-real', source: 'credentials-file' });
 
     const provider = new ClaudeCliProvider();
@@ -57,6 +58,20 @@ describe('ClaudeCliProvider', () => {
     expect(endpoint.apiKey).toBe('sk-ant-real');
     expect(endpoint.provider).toBe('anthropic');
     expect(endpoint.model).toBe('claude-sonnet-4');
+    expect(provider.isCliMode()).toBe(false);
+  });
+
+  it('getEndpoint returns cli-mode endpoint when detected via CLI', async () => {
+    mockDetect.mockResolvedValue({ token: '__claude_cli__', source: 'claude-cli' });
+
+    const provider = new ClaudeCliProvider();
+    await provider.initialize();
+
+    const endpoint = await provider.getEndpoint('claude-sonnet-4');
+
+    expect(endpoint.provider).toBe('claude-cli');
+    expect(endpoint.baseUrl).toBe('__claude_cli__');
+    expect(provider.isCliMode()).toBe(true);
   });
 
   it('getEndpoint throws when no token detected', async () => {
@@ -75,6 +90,16 @@ describe('ClaudeCliProvider', () => {
     await provider.initialize();
 
     expect(provider.isModelAvailable('claude-sonnet-4')).toBe(false);
+    expect(provider.isDetected()).toBe(false);
+  });
+
+  it('getSource returns the detection source', async () => {
+    mockDetect.mockResolvedValue({ token: 'sk-ant-test', source: 'credentials-file' });
+
+    const provider = new ClaudeCliProvider();
+    await provider.initialize();
+
+    expect(provider.getSource()).toBe('credentials-file');
   });
 
   it('shutdown is a no-op', async () => {

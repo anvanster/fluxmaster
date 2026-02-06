@@ -183,7 +183,7 @@ describe('AuthManager', () => {
   describe('getStatus', () => {
     it('reports copilot, claude CLI, and direct providers', async () => {
       fetchMock.mockResolvedValue({ ok: true });
-      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'claude-cli' });
+      mockDetectClaude.mockResolvedValue({ token: 'sk-ant-claude', source: 'credentials-file' });
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
 
       const manager = new AuthManager({
@@ -193,9 +193,34 @@ describe('AuthManager', () => {
       await manager.initialize();
 
       const status = manager.getStatus();
-      expect(status.copilot).toBe(true);
+      expect(status.copilotConfigured).toBe(true);
+      expect(status.copilotReady).toBe(true);
       expect(status.claudeCli).toBe(true);
       expect(status.directProviders).toContain('anthropic');
+
+      await manager.shutdown();
+    });
+  });
+
+  describe('detect', () => {
+    it('detects tokens without starting copilot proxy', async () => {
+      mockDetectClaude.mockResolvedValue({ token: '__claude_cli__', source: 'claude-cli' });
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+
+      const manager = new AuthManager({
+        copilot: { accountType: 'enterprise', port: 4141 },
+        preferDirectApi: false,
+      });
+      await manager.detect();
+
+      const status = manager.getStatus();
+      expect(status.copilotConfigured).toBe(true);
+      expect(status.copilotReady).toBe(false);
+      expect(status.claudeCli).toBe(true);
+      expect(status.directProviders).toContain('anthropic');
+
+      // fetch should not be called (no proxy start)
+      expect(fetchMock).not.toHaveBeenCalled();
 
       await manager.shutdown();
     });

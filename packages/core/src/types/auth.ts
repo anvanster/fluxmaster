@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export type Provider = 'copilot' | 'anthropic' | 'openai' | 'google';
+export type Provider = 'copilot' | 'anthropic' | 'openai' | 'google' | 'claude-cli';
 
 export interface ModelEndpoint {
   model: string;

@@ -22,6 +22,7 @@ export class AuthManager {
     this.directApi = new DirectApiProvider();
   }
 
+  /** Full initialization: detects tokens AND starts the copilot proxy. */
   async initialize(): Promise<void> {
     if (this.copilot) {
       try {
@@ -30,6 +31,16 @@ export class AuthManager {
         logger.warn({ error: err }, 'Copilot initialization failed');
       }
     }
+    try {
+      await this.claudeCli.initialize();
+    } catch (err) {
+      logger.warn({ error: err }, 'Claude CLI token detection failed');
+    }
+    await this.directApi.initialize();
+  }
+
+  /** Lightweight detection: checks which tokens/CLIs are available without starting services. */
+  async detect(): Promise<void> {
     try {
       await this.claudeCli.initialize();
     } catch (err) {
@@ -77,7 +88,7 @@ export class AuthManager {
     await this.directApi.shutdown();
   }
 
-  getStatus(): { copilot: boolean; claudeCli: boolean; directProviders: string[] } {
+  getStatus(): { copilotConfigured: boolean; copilotReady: boolean; claudeCli: boolean; directProviders: string[] } {
     const directProviders: string[] = [];
     for (const p of ['anthropic', 'openai', 'google'] as const) {
       if (this.directApi.hasProvider(p)) {
@@ -85,8 +96,9 @@ export class AuthManager {
       }
     }
     return {
-      copilot: this.copilot?.isReady() ?? false,
-      claudeCli: this.claudeCli.isModelAvailable('claude-sonnet-4'),
+      copilotConfigured: !!this.copilot,
+      copilotReady: this.copilot?.isReady() ?? false,
+      claudeCli: this.claudeCli.isDetected(),
       directProviders,
     };
   }

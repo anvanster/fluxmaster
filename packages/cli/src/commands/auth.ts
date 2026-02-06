@@ -26,16 +26,17 @@ export function authCommand(): Command {
         preferDirectApi: config.auth.preferDirectApi,
       });
 
-      try {
-        await authManager.initialize();
-      } catch {
-        // Initialization failures are reported via status
-      }
+      // Use lightweight detect() — don't start the copilot proxy just for status
+      await authManager.detect();
 
       const status = authManager.getStatus();
 
       console.log('Authentication Status:');
-      console.log(`  Copilot proxy: ${status.copilot ? 'connected' : 'not available'}`);
+      if (status.copilotConfigured) {
+        console.log(`  Copilot proxy: configured (starts on demand)`);
+      } else {
+        console.log(`  Copilot proxy: not configured`);
+      }
       console.log(`  Claude CLI:    ${status.claudeCli ? 'detected' : 'not available'}`);
       if (status.directProviders.length > 0) {
         console.log(`  Direct API keys: ${status.directProviders.join(', ')}`);

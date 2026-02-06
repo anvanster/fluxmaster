@@ -8,18 +8,10 @@ import type { TokenResult } from './gh-token-detector.js';
 const logger = createChildLogger('claude-token-detector');
 
 export async function detectClaudeToken(): Promise<TokenResult | null> {
-  // Priority 1: Try claude CLI command
-  try {
-    const token = await execClaudeAuth();
-    if (token) {
-      logger.info('Detected Claude token via CLI');
-      return { token, source: 'claude-cli' };
-    }
-  } catch {
-    logger.debug('claude CLI not available or not logged in');
-  }
+  // Priority 1: Check ANTHROPIC_API_KEY env var (explicit user-set key)
+  // (Handled by DirectApiProvider, skip here to avoid double-counting)
 
-  // Priority 2: Read credentials file
+  // Priority 2: Read credentials file (Linux/CI environments)
   try {
     const token = await readCredentialsFile();
     if (token) {
@@ -30,22 +22,24 @@ export async function detectClaudeToken(): Promise<TokenResult | null> {
     logger.debug('Claude credentials file not found or unreadable');
   }
 
+  // Priority 3: Check if Claude CLI is installed (OAuth via keychain — no extractable token)
+  try {
+    const installed = await isClaudeCliInstalled();
+    if (installed) {
+      logger.info('Claude CLI detected (auth via system keychain)');
+      return { token: '__claude_cli__', source: 'claude-cli' };
+    }
+  } catch {
+    logger.debug('Claude CLI not available');
+  }
+
   return null;
 }
 
-function execClaudeAuth(): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    execFile('claude', ['auth', 'status', '--json'], { timeout: 5000 }, (error, stdout) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      try {
-        const data = JSON.parse(stdout.trim());
-        resolve(data.apiKey || null);
-      } catch {
-        resolve(null);
-      }
+function isClaudeCliInstalled(): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile('claude', ['--version'], { timeout: 5000 }, (error) => {
+      resolve(!error);
     });
   });
 }
