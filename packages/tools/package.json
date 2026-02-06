@@ -1,0 +1,19 @@
+{
+  "name": "@fluxmaster/tools",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fluxmaster/core": "*",
+    "zod": "^3.24.0"
+  }
+}

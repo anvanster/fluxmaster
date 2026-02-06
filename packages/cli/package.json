@@ -1,0 +1,25 @@
+{
+  "name": "@fluxmaster/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "fluxmaster": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fluxmaster/agents": "*",
+    "@fluxmaster/auth": "*",
+    "@fluxmaster/core": "*",
+    "@fluxmaster/tools": "*",
+    "commander": "^12.0.0"
+  }
+}

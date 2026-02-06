@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/auth" },
+    { "path": "packages/tools" },
+    { "path": "packages/agents" },
+    { "path": "packages/cli" }
+  ]
+}
