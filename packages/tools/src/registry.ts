@@ -31,12 +31,24 @@ export class ToolRegistry {
     return this.tools.has(name);
   }
 
+  unregister(name: string): boolean {
+    return this.tools.delete(name);
+  }
+
+  getByPrefix(prefix: string): Tool[] {
+    return Array.from(this.tools.values()).filter(t => t.name.startsWith(prefix));
+  }
+
+  private getJsonSchema(tool: Tool): Record<string, unknown> {
+    return tool.rawJsonSchema ?? zodToJsonSchema(tool.inputSchema);
+  }
+
   toAnthropicFormat(names?: string[]): AnthropicToolFormat[] {
     const tools = names ? this.getForNames(names) : this.list();
     return tools.map(tool => ({
       name: tool.name,
       description: tool.description,
-      input_schema: zodToJsonSchema(tool.inputSchema),
+      input_schema: this.getJsonSchema(tool),
     }));
   }
 
@@ -47,7 +59,7 @@ export class ToolRegistry {
       function: {
         name: tool.name,
         description: tool.description,
-        parameters: zodToJsonSchema(tool.inputSchema),
+        parameters: this.getJsonSchema(tool),
       },
     }));
   }

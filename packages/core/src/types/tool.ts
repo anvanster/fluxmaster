@@ -4,6 +4,7 @@ export interface ToolDefinition {
   name: string;
   description: string;
   inputSchema: z.ZodType<unknown>;
+  rawJsonSchema?: Record<string, unknown>;
 }
 
 export interface ToolResult {

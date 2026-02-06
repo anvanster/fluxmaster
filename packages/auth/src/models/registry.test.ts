@@ -6,7 +6,7 @@ describe('Model Registry', () => {
     it('returns true for known Copilot models', () => {
       expect(isCopilotModel('claude-sonnet-4')).toBe(true);
       expect(isCopilotModel('gpt-5')).toBe(true);
-      expect(isCopilotModel('gemini-3-pro')).toBe(true);
+      expect(isCopilotModel('gemini-3-pro-preview')).toBe(true);
     });
 
     it('returns false for unknown models', () => {
@@ -28,7 +28,7 @@ describe('Model Registry', () => {
     });
 
     it('maps gemini-* to google', () => {
-      expect(inferProvider('gemini-3-pro')).toBe('google');
+      expect(inferProvider('gemini-3-pro-preview')).toBe('google');
     });
 
     it('maps grok-* to xai', () => {
@@ -57,7 +57,7 @@ describe('Model Registry', () => {
       const models = listCopilotModels();
       expect(models).toContain('claude-sonnet-4');
       expect(models).toContain('gpt-5');
-      expect(models).toContain('gemini-3-pro');
+      expect(models).toContain('gemini-3-pro-preview');
       expect(models.length).toBeGreaterThan(0);
     });
   });

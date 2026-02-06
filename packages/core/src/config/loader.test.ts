@@ -89,6 +89,80 @@ describe('loadConfig', () => {
     await expect(loadConfig(configPath))
       .rejects.toBeInstanceOf(ConfigValidationError);
   });
+
+  it('loads config with mcpServers section', async () => {
+    const config = {
+      auth: {},
+      mcpServers: {
+        global: [
+          {
+            name: 'filesystem',
+            transport: 'stdio',
+            command: 'npx',
+            args: ['-y', '@modelcontextprotocol/server-filesystem', './workspace'],
+          },
+        ],
+      },
+    };
+    const configPath = path.join(tmpDir, 'mcp.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.mcpServers.global).toHaveLength(1);
+    expect(loaded.mcpServers.global[0].name).toBe('filesystem');
+    expect(loaded.mcpServers.global[0].transport).toBe('stdio');
+  });
+
+  it('loads config with agent-level mcpServers', async () => {
+    const config = {
+      auth: {},
+      agents: {
+        list: [{
+          id: 'coder',
+          model: 'claude-sonnet-4',
+          tools: [],
+          mcpServers: [{
+            name: 'github',
+            transport: 'stdio',
+            command: 'npx',
+            args: ['-y', '@modelcontextprotocol/server-github'],
+            env: { GITHUB_TOKEN: 'test-token' },
+          }],
+        }],
+      },
+    };
+    const configPath = path.join(tmpDir, 'agent-mcp.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.agents.list[0].mcpServers).toHaveLength(1);
+    expect(loaded.agents.list[0].mcpServers[0].name).toBe('github');
+  });
+
+  it('loads config with browser section', async () => {
+    const config = {
+      auth: {},
+      browser: {
+        headless: false,
+        userDataDir: '/tmp/browser',
+      },
+    };
+    const configPath = path.join(tmpDir, 'browser.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.browser?.headless).toBe(false);
+    expect(loaded.browser?.userDataDir).toBe('/tmp/browser');
+    expect(loaded.browser?.viewport.width).toBe(1280);
+  });
+
+  it('defaults mcpServers to empty global array', async () => {
+    const configPath = path.join(tmpDir, 'nomcp.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.mcpServers.global).toEqual([]);
+  });
 });
 
 describe('generateDefaultConfig', () => {
@@ -99,5 +173,6 @@ describe('generateDefaultConfig', () => {
     expect(config.agents.defaults.maxTokens).toBe(8192);
     expect(config.agents.list.length).toBe(1);
     expect(config.agents.list[0].id).toBe('default');
+    expect(config.mcpServers.global).toEqual([]);
   });
 });

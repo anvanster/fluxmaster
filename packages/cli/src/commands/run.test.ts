@@ -56,6 +56,7 @@ const mockRouteMessage = vi.fn().mockResolvedValue({
   allContent: [],
 });
 const mockKillAll = vi.fn();
+const mockKillAgent = vi.fn();
 const mockGetAgent = vi.fn().mockReturnValue({
   clearHistory: mockClearHistory,
 });
@@ -63,13 +64,17 @@ const mockListAgents = vi.fn().mockReturnValue([
   { id: 'default', model: 'claude-sonnet-4', status: 'idle' },
 ]);
 
+const mockInitializeMcp = vi.fn().mockResolvedValue(undefined);
+
 vi.mock('@fluxmaster/agents', () => ({
   AgentManager: vi.fn().mockImplementation(() => ({
     spawnAgent: mockSpawnAgent,
     routeMessage: mockRouteMessage,
     killAll: mockKillAll,
+    killAgent: mockKillAgent,
     getAgent: mockGetAgent,
     listAgents: mockListAgents,
+    initializeMcp: mockInitializeMcp,
   })),
 }));
 
@@ -82,6 +87,12 @@ vi.mock('@fluxmaster/tools', () => ({
     toAnthropicFormat: vi.fn().mockReturnValue([]),
     toOpenAIFormat: vi.fn().mockReturnValue([]),
   }),
+  McpServerManager: vi.fn().mockImplementation(() => ({
+    startServer: vi.fn().mockResolvedValue([]),
+    stopServer: vi.fn().mockResolvedValue(undefined),
+    stopAll: vi.fn().mockResolvedValue(undefined),
+    getToolsForServer: vi.fn().mockReturnValue([]),
+  })),
 }));
 
 describe('fluxmaster run', () => {
@@ -207,6 +218,140 @@ describe('fluxmaster run', () => {
     expect(consoleSpy).toHaveBeenCalledWith('Token usage:');
     expect(consoleSpy).toHaveBeenCalledWith('  Input:  100');
     expect(consoleSpy).toHaveBeenCalledWith('  Output: 50');
+    consoleSpy.mockRestore();
+  });
+
+  it('handles /agents command', async () => {
+    const config = generateDefaultConfig();
+    await fs.writeFile(
+      path.join(tmpDir, 'fluxmaster.config.json'),
+      JSON.stringify(config, null, 2),
+    );
+
+    mockQuestion
+      .mockResolvedValueOnce('/agents')
+      .mockResolvedValueOnce('/exit');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { createApp } = await import('../app.js');
+    const app = createApp();
+    await app.parseAsync(['node', 'fluxmaster', 'run']);
+
+    expect(mockListAgents).toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith('Active agents:');
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('default')
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('handles /agent spawn command', async () => {
+    const config = generateDefaultConfig();
+    await fs.writeFile(
+      path.join(tmpDir, 'fluxmaster.config.json'),
+      JSON.stringify(config, null, 2),
+    );
+
+    mockQuestion
+      .mockResolvedValueOnce('/agent spawn researcher gpt-5')
+      .mockResolvedValueOnce('/exit');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { createApp } = await import('../app.js');
+    const app = createApp();
+    await app.parseAsync(['node', 'fluxmaster', 'run']);
+
+    // spawnAgent called twice: once for default, once for researcher
+    expect(mockSpawnAgent).toHaveBeenCalledTimes(2);
+    expect(mockSpawnAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'researcher', model: 'gpt-5' })
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('researcher')
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('handles /agent switch command', async () => {
+    const config = generateDefaultConfig();
+    await fs.writeFile(
+      path.join(tmpDir, 'fluxmaster.config.json'),
+      JSON.stringify(config, null, 2),
+    );
+
+    mockGetAgent.mockImplementation((id: string) => {
+      if (id === 'default' || id === 'researcher') {
+        return { clearHistory: mockClearHistory };
+      }
+      return undefined;
+    });
+
+    mockQuestion
+      .mockResolvedValueOnce('/agent switch researcher')
+      .mockResolvedValueOnce('hello after switch')
+      .mockResolvedValueOnce('/exit');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { createApp } = await import('../app.js');
+    const app = createApp();
+    await app.parseAsync(['node', 'fluxmaster', 'run']);
+
+    expect(consoleSpy).toHaveBeenCalledWith('Switched to agent "researcher".');
+    // Message after switch routes to researcher
+    expect(mockRouteMessage).toHaveBeenCalledWith('researcher', 'hello after switch');
+    consoleSpy.mockRestore();
+  });
+
+  it('handles /agent kill command', async () => {
+    const config = generateDefaultConfig();
+    await fs.writeFile(
+      path.join(tmpDir, 'fluxmaster.config.json'),
+      JSON.stringify(config, null, 2),
+    );
+
+    mockQuestion
+      .mockResolvedValueOnce('/agent kill default')
+      .mockResolvedValueOnce('/exit');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { createApp } = await import('../app.js');
+    const app = createApp();
+    await app.parseAsync(['node', 'fluxmaster', 'run']);
+
+    expect(mockKillAgent).toHaveBeenCalledWith('default');
+    expect(consoleSpy).toHaveBeenCalledWith('Agent "default" killed.');
+    consoleSpy.mockRestore();
+  });
+
+  it('handles /broadcast command', async () => {
+    const config = generateDefaultConfig();
+    await fs.writeFile(
+      path.join(tmpDir, 'fluxmaster.config.json'),
+      JSON.stringify(config, null, 2),
+    );
+
+    mockListAgents.mockReturnValue([
+      { id: 'default', model: 'claude-sonnet-4', status: 'idle' },
+      { id: 'researcher', model: 'gpt-5', status: 'idle' },
+    ]);
+
+    mockQuestion
+      .mockResolvedValueOnce('/broadcast summarize this')
+      .mockResolvedValueOnce('/exit');
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const { createApp } = await import('../app.js');
+    const app = createApp();
+    await app.parseAsync(['node', 'fluxmaster', 'run']);
+
+    // Should route to both agents
+    expect(mockRouteMessage).toHaveBeenCalledWith('default', 'summarize this');
+    expect(mockRouteMessage).toHaveBeenCalledWith('researcher', 'summarize this');
     consoleSpy.mockRestore();
   });
 });

@@ -5,6 +5,14 @@ export interface AgentConfig {
   tools: string[];
   maxTokens?: number;
   temperature?: number;
+  mcpServers?: Array<{
+    name: string;
+    transport: 'stdio' | 'sse';
+    command?: string;
+    args?: string[];
+    url?: string;
+    env?: Record<string, string>;
+  }>;
 }
 
 export type MessageRole = 'user' | 'assistant' | 'tool';

@@ -102,8 +102,9 @@ export class CopilotAuthProvider implements IAuthProvider {
 
   private async checkHealth(): Promise<boolean> {
     try {
+      // copilot-api serves root "/" (200) and "/v1/models" — no /health endpoint
       const response = await fetch(
-        `http://localhost:${this.config.port}/health`,
+        `http://localhost:${this.config.port}/`,
         { signal: AbortSignal.timeout(2000) },
       );
       return response.ok;

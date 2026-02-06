@@ -1,9 +1,9 @@
 import { Command } from 'commander';
 import * as readline from 'node:readline/promises';
-import { loadConfig } from '@fluxmaster/core';
+import { loadConfig, type FluxmasterConfig } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
 import { AgentManager } from '@fluxmaster/agents';
-import { createDefaultRegistry } from '@fluxmaster/tools';
+import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools } from '@fluxmaster/tools';
 
 export function runCommand(): Command {
   const cmd = new Command('run');
@@ -14,7 +14,7 @@ export function runCommand(): Command {
     .option('--agent <id>', 'Agent ID to use', 'default')
     .action(async (options: { config: string; agent: string }) => {
       // Load config
-      let config;
+      let config: FluxmasterConfig;
       try {
         config = await loadConfig(options.config);
       } catch {
@@ -38,9 +38,27 @@ export function runCommand(): Command {
       });
       await authManager.initialize();
 
-      // Initialize tools and agent
+      // Initialize tools, MCP, and agent
       const toolRegistry = createDefaultRegistry();
-      const agentManager = new AgentManager(authManager, toolRegistry);
+      const mcpServerManager = new McpServerManager(toolRegistry);
+      const agentManager = new AgentManager(authManager, toolRegistry, {
+        mcpServerManager,
+        globalMcpServers: config.mcpServers.global,
+      });
+
+      // Start global MCP servers
+      await agentManager.initializeMcp();
+
+      // Initialize browser if configured
+      let browserManager: BrowserManager | null = null;
+      if (config.browser) {
+        browserManager = new BrowserManager();
+        await browserManager.launch(config.browser);
+        const browserTools = createBrowserTools(browserManager);
+        for (const tool of browserTools) {
+          toolRegistry.register(tool);
+        }
+      }
 
       const mergedConfig = {
         ...agentConfig,
@@ -49,10 +67,11 @@ export function runCommand(): Command {
       };
       await agentManager.spawnAgent(mergedConfig);
 
+      let activeAgentId = agentConfig.id;
       let totalUsage = { inputTokens: 0, outputTokens: 0 };
 
       console.log(`Agent "${agentConfig.id}" ready (model: ${agentConfig.model})`);
-      console.log('Commands: /exit, /clear, /tools, /usage\n');
+      console.log('Commands: /exit, /clear, /tools, /usage, /agents, /agent <cmd>, /broadcast\n');
 
       // REPL loop
       const rl = readline.createInterface({
@@ -65,7 +84,7 @@ export function runCommand(): Command {
         while (running) {
           let input: string;
           try {
-            input = await rl.question('you> ');
+            input = await rl.question(`[${activeAgentId}] you> `);
           } catch {
             // EOF or error
             break;
@@ -81,7 +100,7 @@ export function runCommand(): Command {
           }
 
           if (trimmed === '/clear') {
-            const worker = agentManager.getAgent(options.agent);
+            const worker = agentManager.getAgent(activeAgentId);
             worker?.clearHistory();
             console.log('History cleared.');
             continue;
@@ -108,9 +127,130 @@ export function runCommand(): Command {
             continue;
           }
 
-          // Send message to agent
+          if (trimmed === '/agents' || trimmed === '/agent list') {
+            const agents = agentManager.listAgents();
+            if (agents.length === 0) {
+              console.log('No agents running.');
+            } else {
+              console.log('Active agents:');
+              for (const agent of agents) {
+                const marker = agent.id === activeAgentId ? ' (active)' : '';
+                console.log(`  - ${agent.id}: model=${agent.model} status=${agent.status}${marker}`);
+              }
+            }
+            continue;
+          }
+
+          if (trimmed.startsWith('/agent spawn ')) {
+            const args = trimmed.slice('/agent spawn '.length).trim().split(/\s+/);
+            const newId = args[0];
+            const model = args[1];
+
+            if (!newId) {
+              console.log('Usage: /agent spawn <id> [model]');
+              continue;
+            }
+
+            // Check if agent ID exists in config
+            const configEntry = config.agents.list.find(a => a.id === newId);
+            const spawnConfig = configEntry
+              ? {
+                  ...configEntry,
+                  maxTokens: configEntry.maxTokens ?? config.agents.defaults.maxTokens,
+                  temperature: configEntry.temperature ?? config.agents.defaults.temperature,
+                }
+              : {
+                  id: newId,
+                  model: model || agentConfig.model,
+                  tools: agentConfig.tools,
+                  maxTokens: config.agents.defaults.maxTokens,
+                  temperature: config.agents.defaults.temperature,
+                };
+
+            try {
+              await agentManager.spawnAgent(spawnConfig);
+              console.log(`Agent "${newId}" spawned (model: ${spawnConfig.model}).`);
+            } catch (err) {
+              console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+            }
+            continue;
+          }
+
+          if (trimmed.startsWith('/agent kill ')) {
+            const targetId = trimmed.slice('/agent kill '.length).trim();
+            if (!targetId) {
+              console.log('Usage: /agent kill <id>');
+              continue;
+            }
+            try {
+              agentManager.killAgent(targetId);
+              console.log(`Agent "${targetId}" killed.`);
+              if (activeAgentId === targetId) {
+                const remaining = agentManager.listAgents();
+                activeAgentId = remaining.length > 0 ? remaining[0].id : activeAgentId;
+                if (remaining.length > 0) {
+                  console.log(`Switched to agent "${activeAgentId}".`);
+                }
+              }
+            } catch (err) {
+              console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+            }
+            continue;
+          }
+
+          if (trimmed.startsWith('/agent switch ')) {
+            const targetId = trimmed.slice('/agent switch '.length).trim();
+            if (!targetId) {
+              console.log('Usage: /agent switch <id>');
+              continue;
+            }
+            const worker = agentManager.getAgent(targetId);
+            if (worker) {
+              activeAgentId = targetId;
+              console.log(`Switched to agent "${targetId}".`);
+            } else {
+              console.error(`Agent "${targetId}" not found.`);
+            }
+            continue;
+          }
+
+          if (trimmed === '/mcp list' || trimmed === '/mcp status') {
+            const globalServers = config.mcpServers.global;
+            if (globalServers.length === 0) {
+              console.log('No MCP servers configured.');
+            } else {
+              console.log('MCP servers:');
+              for (const server of globalServers) {
+                console.log(`  - ${server.name}: ${server.transport} (${server.command || server.url})`);
+              }
+            }
+            continue;
+          }
+
+          if (trimmed.startsWith('/broadcast ')) {
+            const broadcastMsg = trimmed.slice('/broadcast '.length).trim();
+            if (!broadcastMsg) {
+              console.log('Usage: /broadcast <message>');
+              continue;
+            }
+            const agents = agentManager.listAgents();
+            for (const agent of agents) {
+              try {
+                const result = await agentManager.routeMessage(agent.id, broadcastMsg);
+                totalUsage.inputTokens += result.usage.inputTokens;
+                totalUsage.outputTokens += result.usage.outputTokens;
+                console.log(`\n[${agent.id}]> ${result.text}`);
+              } catch (err) {
+                console.error(`[${agent.id}] Error: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }
+            console.log('');
+            continue;
+          }
+
+          // Send message to active agent
           try {
-            const result = await agentManager.routeMessage(options.agent, trimmed);
+            const result = await agentManager.routeMessage(activeAgentId, trimmed);
             totalUsage.inputTokens += result.usage.inputTokens;
             totalUsage.outputTokens += result.usage.outputTokens;
             console.log(`\nassistant> ${result.text}\n`);
@@ -121,6 +261,10 @@ export function runCommand(): Command {
       } finally {
         rl.close();
         agentManager.killAll();
+        await mcpServerManager.stopAll();
+        if (browserManager) {
+          await browserManager.close();
+        }
         await authManager.shutdown();
       }
     });

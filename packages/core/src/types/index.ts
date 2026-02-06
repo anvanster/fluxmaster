@@ -30,5 +30,5 @@ export type {
   StopReason,
 } from './agent.js';
 
-export type { FluxmasterConfig } from './config.js';
-export { FluxmasterConfigSchema, AgentConfigSchema } from './config.js';
+export type { FluxmasterConfig, McpServerConfig, BrowserConfig } from './config.js';
+export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema } from './config.js';

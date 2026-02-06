@@ -1,6 +1,8 @@
 export { ToolRegistry } from './registry.js';
 export { readFileTool, writeFileTool, listFilesTool } from './filesystem/index.js';
 export { bashExecuteTool } from './bash/index.js';
+export { McpClient, McpServerManager } from './mcp/index.js';
+export { BrowserManager, createBrowserTools } from './browser/index.js';
 
 import { ToolRegistry } from './registry.js';
 import { readFileTool, writeFileTool, listFilesTool } from './filesystem/index.js';

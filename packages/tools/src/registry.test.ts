@@ -74,4 +74,71 @@ describe('ToolRegistry', () => {
     expect(formatted[0].function.name).toBe('my_tool');
     expect(formatted[0].function.parameters).toHaveProperty('type', 'object');
   });
+
+  it('unregister() removes a tool by name', () => {
+    const registry = new ToolRegistry();
+    registry.register(makeTool('removable'));
+
+    expect(registry.has('removable')).toBe(true);
+    const removed = registry.unregister('removable');
+    expect(removed).toBe(true);
+    expect(registry.has('removable')).toBe(false);
+  });
+
+  it('unregister() returns false for unknown tool', () => {
+    const registry = new ToolRegistry();
+    expect(registry.unregister('nonexistent')).toBe(false);
+  });
+
+  it('getByPrefix() returns tools matching prefix', () => {
+    const registry = new ToolRegistry();
+    registry.register(makeTool('mcp/github/create_issue'));
+    registry.register(makeTool('mcp/github/list_repos'));
+    registry.register(makeTool('mcp/slack/send_message'));
+    registry.register(makeTool('read_file'));
+
+    const githubTools = registry.getByPrefix('mcp/github/');
+    expect(githubTools).toHaveLength(2);
+    expect(githubTools.map(t => t.name)).toContain('mcp/github/create_issue');
+    expect(githubTools.map(t => t.name)).toContain('mcp/github/list_repos');
+  });
+
+  it('getByPrefix() returns empty array when no match', () => {
+    const registry = new ToolRegistry();
+    registry.register(makeTool('read_file'));
+
+    expect(registry.getByPrefix('mcp/')).toEqual([]);
+  });
+
+  it('toAnthropicFormat() uses rawJsonSchema when present', () => {
+    const registry = new ToolRegistry();
+    const rawSchema = { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] };
+    const tool: Tool = {
+      name: 'mcp_tool',
+      description: 'MCP tool',
+      inputSchema: z.any(),
+      rawJsonSchema: rawSchema,
+      execute: async () => ({ content: 'ok' }),
+    };
+    registry.register(tool);
+
+    const formatted = registry.toAnthropicFormat();
+    expect(formatted[0].input_schema).toEqual(rawSchema);
+  });
+
+  it('toOpenAIFormat() uses rawJsonSchema when present', () => {
+    const registry = new ToolRegistry();
+    const rawSchema = { type: 'object', properties: { query: { type: 'string' } } };
+    const tool: Tool = {
+      name: 'mcp_search',
+      description: 'MCP search',
+      inputSchema: z.any(),
+      rawJsonSchema: rawSchema,
+      execute: async () => ({ content: 'results' }),
+    };
+    registry.register(tool);
+
+    const formatted = registry.toOpenAIFormat();
+    expect(formatted[0].function.parameters).toEqual(rawSchema);
+  });
 });

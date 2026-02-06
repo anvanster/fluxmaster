@@ -1,6 +1,28 @@
 import { z } from 'zod';
 import { CopilotConfigSchema } from './auth.js';
 
+export const McpServerConfigSchema = z.object({
+  name: z.string().min(1),
+  transport: z.enum(['stdio', 'sse']),
+  command: z.string().optional(),
+  args: z.array(z.string()).optional(),
+  url: z.string().url().optional(),
+  env: z.record(z.string()).optional(),
+});
+
+export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+
+const BrowserConfigSchema = z.object({
+  headless: z.boolean().default(true),
+  userDataDir: z.string().optional(),
+  viewport: z.object({
+    width: z.number().int().positive().default(1280),
+    height: z.number().int().positive().default(720),
+  }).default({}),
+});
+
+export type BrowserConfig = z.infer<typeof BrowserConfigSchema>;
+
 const AgentConfigSchema = z.object({
   id: z.string().min(1),
   model: z.string().min(1),
@@ -8,6 +30,7 @@ const AgentConfigSchema = z.object({
   tools: z.array(z.string()).default([]),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(2).optional(),
+  mcpServers: z.array(McpServerConfigSchema).default([]),
 });
 
 export const FluxmasterConfigSchema = z.object({
@@ -22,8 +45,12 @@ export const FluxmasterConfigSchema = z.object({
     }).default({}),
     list: z.array(AgentConfigSchema).default([]),
   }).default({}),
+  mcpServers: z.object({
+    global: z.array(McpServerConfigSchema).default([]),
+  }).default({}),
+  browser: BrowserConfigSchema.optional(),
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;
 
-export { AgentConfigSchema };
+export { AgentConfigSchema, BrowserConfigSchema };
