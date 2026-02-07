@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { AppContext } from '../context.js';
-import type { HealthResponse, UsageResponse } from '../shared/api-types.js';
+import type { HealthResponse, UsageResponse, CostResponse } from '../shared/api-types.js';
 
 const startTime = Date.now();
 
@@ -20,6 +20,15 @@ export function systemRoutes(ctx: AppContext): FastifyPluginAsync {
       const response: UsageResponse = {
         total: ctx.usageTracker.getTotal(),
         byAgent: ctx.usageTracker.getAll(),
+      };
+      return response;
+    });
+
+    // GET /api/cost
+    fastify.get('/cost', async () => {
+      const response: CostResponse = {
+        totalCost: ctx.costCalculator.getTotalCost(),
+        byAgent: ctx.costCalculator.getCostBreakdown(),
       };
       return response;
     });

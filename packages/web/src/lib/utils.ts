@@ -12,3 +12,8 @@ export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
+
+export function formatCost(amount: number): string {
+  if (amount < 0.01) return '<$0.01';
+  return `$${amount.toFixed(2)}`;
+}

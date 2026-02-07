@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WsHandler } from './handler.js';
 import type { AppContext } from '../context.js';
 import { UsageTracker } from '../usage-tracker.js';
+import { CostCalculator } from '../cost-calculator.js';
+import { EventBus } from '@fluxmaster/core';
 import { EventEmitter } from 'node:events';
 
 function createMockSocket() {
@@ -29,6 +31,8 @@ function createMockContext(): AppContext {
     toolRegistry: {} as any,
     mcpServerManager: {} as any,
     usageTracker: new UsageTracker(),
+    eventBus: new EventBus(),
+    costCalculator: new CostCalculator(new UsageTracker(), {}, new Map()),
   };
 }
 

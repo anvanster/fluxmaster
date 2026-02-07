@@ -1,9 +1,10 @@
-import { loadConfig, type FluxmasterConfig } from '@fluxmaster/core';
+import { loadConfig, EventBus, type FluxmasterConfig } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
 import { AgentManager } from '@fluxmaster/agents';
 import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools, PluginLoader } from '@fluxmaster/tools';
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
+import { CostCalculator } from './cost-calculator.js';
 
 export interface BootstrapOptions {
   configPath: string;
@@ -21,10 +22,12 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
   const toolRegistry = createDefaultRegistry();
   const mcpServerManager = new McpServerManager(toolRegistry);
   const usageTracker = new UsageTracker();
+  const eventBus = new EventBus();
 
   const agentManager = new AgentManager(authManager, toolRegistry, {
     mcpServerManager,
     globalMcpServers: config.mcpServers.global,
+    eventBus,
   });
 
   await agentManager.initializeMcp();
@@ -66,6 +69,17 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     }
   }
 
+  const agentModels = new Map<string, string>();
+  for (const agentConfig of config.agents.list) {
+    agentModels.set(agentConfig.id, agentConfig.model);
+  }
+  const costCalculator = new CostCalculator(usageTracker, config.pricing, agentModels);
+
+  // Track model mappings for dynamically spawned agents
+  eventBus.on('agent:spawned', (event) => {
+    agentModels.set(event.agentId, event.model);
+  });
+
   return {
     config,
     authManager,
@@ -73,6 +87,8 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     toolRegistry,
     mcpServerManager,
     usageTracker,
+    eventBus,
+    costCalculator,
   };
 }
 

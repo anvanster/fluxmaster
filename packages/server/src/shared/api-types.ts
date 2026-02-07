@@ -69,6 +69,11 @@ export interface UsageResponse {
   byAgent: Record<string, { inputTokens: number; outputTokens: number; requestCount: number }>;
 }
 
+export interface CostResponse {
+  totalCost: number;
+  byAgent: Record<string, number>;
+}
+
 // --- Error DTOs ---
 
 export interface ErrorResponse {

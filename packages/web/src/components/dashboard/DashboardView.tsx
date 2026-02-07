@@ -1,15 +1,19 @@
 import { useAgents } from '@/api/hooks/useAgents';
 import { useHealth, useUsage } from '@/api/hooks/useSystem';
+import { useCost } from '@/api/hooks/useCost';
 import { AgentStatusGrid } from './AgentStatusGrid';
 import { UsageSummary } from './UsageSummary';
 import { UsageChart } from './UsageChart';
 import { SystemHealth } from './SystemHealth';
+import { CostSummary } from './CostSummary';
+import { CostByAgent } from './CostByAgent';
 import { Spinner } from '@/components/common/Spinner';
 
 export function DashboardView() {
   const { data: agents = [], isLoading: agentsLoading } = useAgents();
   const { data: health } = useHealth();
   const { data: usage } = useUsage();
+  const { data: cost } = useCost();
 
   if (agentsLoading) {
     return (
@@ -35,6 +39,13 @@ export function DashboardView() {
         <h3 className="mb-3 text-sm font-medium text-gray-300">Agents</h3>
         <AgentStatusGrid agents={agents} />
       </div>
+
+      {cost && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <CostSummary totalCost={cost.totalCost} />
+          <CostByAgent byAgent={cost.byAgent} />
+        </div>
+      )}
 
       {usage && Object.keys(usage.byAgent).length > 0 && <UsageChart byAgent={usage.byAgent} />}
     </div>

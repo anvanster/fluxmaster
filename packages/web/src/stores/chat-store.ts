@@ -36,6 +36,7 @@ interface ChatState {
   finalizeStream: (agentId: string, requestId: string, text: string) => void;
   clearConversation: (agentId: string) => void;
   clearAllConversations: () => void;
+  importConversation: (agentId: string, messages: ChatMessage[]) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -93,7 +94,7 @@ export const useChatStore = create<ChatState>()(
           if (current) {
             const toolCalls = current.toolCalls.map((tc) =>
               tc.name === toolName && tc.status === 'pending'
-                ? { ...tc, status: (isError ? 'error' : 'done') as const, result, isError }
+                ? { ...tc, status: (isError ? 'error' : 'done') as 'error' | 'done', result, isError }
                 : tc,
             );
             streaming.set(requestId, { ...current, toolCalls });
@@ -129,6 +130,13 @@ export const useChatStore = create<ChatState>()(
 
       clearAllConversations: () =>
         set({ conversations: new Map(), streaming: new Map() }),
+
+      importConversation: (agentId, messages) =>
+        set((state) => {
+          const conv = new Map(state.conversations);
+          conv.set(agentId, messages);
+          return { conversations: conv, activeAgentId: agentId };
+        }),
     }),
     {
       name: 'fluxmaster-chat',

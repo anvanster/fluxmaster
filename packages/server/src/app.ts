@@ -8,6 +8,7 @@ import { registerRoutes } from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { WsHandler } from './ws/handler.js';
+import { WsEventBridge } from './events/ws-event-bridge.js';
 
 export interface CreateAppOptions {
   ctx: AppContext;
@@ -28,6 +29,9 @@ export async function createApp(options: CreateAppOptions): Promise<{ app: Fasti
   await registerRoutes(app, ctx);
 
   const wsHandler = new WsHandler(ctx);
+
+  const eventBridge = new WsEventBridge(ctx.eventBus, wsHandler.connections);
+  eventBridge.start();
 
   app.register(async (fastify) => {
     fastify.get('/ws', { websocket: true }, (socket) => {

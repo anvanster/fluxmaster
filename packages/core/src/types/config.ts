@@ -44,6 +44,11 @@ const PluginConfigSchema = z.object({
   config: z.record(z.unknown()).default({}),
 });
 
+const ModelPricingSchema = z.object({
+  inputPer1M: z.number().nonnegative(),
+  outputPer1M: z.number().nonnegative(),
+});
+
 export const FluxmasterConfigSchema = z.object({
   auth: z.object({
     copilot: CopilotConfigSchema.optional(),
@@ -62,6 +67,13 @@ export const FluxmasterConfigSchema = z.object({
   browser: BrowserConfigSchema.optional(),
   retry: RetryConfigSchema,
   plugins: z.array(PluginConfigSchema).default([]),
+  pricing: z.record(ModelPricingSchema).default({
+    'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 },
+    'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.6 },
+    'claude-sonnet-4': { inputPer1M: 3, outputPer1M: 15 },
+    'claude-haiku-3.5': { inputPer1M: 0.8, outputPer1M: 4 },
+    'claude-opus-4': { inputPer1M: 15, outputPer1M: 75 },
+  }),
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;

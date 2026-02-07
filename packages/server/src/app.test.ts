@@ -8,6 +8,8 @@ vi.mock('./bootstrap.js', () => ({
 import { createApp } from './app.js';
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
+import { CostCalculator } from './cost-calculator.js';
+import { EventBus } from '@fluxmaster/core';
 
 function createMockContext(): AppContext {
   return {
@@ -38,6 +40,8 @@ function createMockContext(): AppContext {
       listRunning: vi.fn().mockReturnValue([]),
     } as any,
     usageTracker: new UsageTracker(),
+    eventBus: new EventBus(),
+    costCalculator: new CostCalculator(new UsageTracker(), {}, new Map()),
   };
 }
 

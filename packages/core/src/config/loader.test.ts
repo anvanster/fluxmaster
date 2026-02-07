@@ -239,6 +239,32 @@ describe('loadConfig', () => {
     const loaded = await loadConfig(configPath);
     expect(loaded.plugins).toEqual([]);
   });
+
+  it('provides default pricing for common models', async () => {
+    const configPath = path.join(tmpDir, 'defaultpricing.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.pricing['gpt-4o']).toEqual({ inputPer1M: 2.5, outputPer1M: 10 });
+    expect(loaded.pricing['claude-sonnet-4']).toEqual({ inputPer1M: 3, outputPer1M: 15 });
+    expect(loaded.pricing['claude-opus-4']).toEqual({ inputPer1M: 15, outputPer1M: 75 });
+  });
+
+  it('allows custom pricing overrides', async () => {
+    const config = {
+      auth: {},
+      pricing: {
+        'custom-model': { inputPer1M: 1, outputPer1M: 2 },
+      },
+    };
+    const configPath = path.join(tmpDir, 'custompricing.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.pricing['custom-model']).toEqual({ inputPer1M: 1, outputPer1M: 2 });
+    // Custom pricing replaces defaults entirely
+    expect(loaded.pricing['gpt-4o']).toBeUndefined();
+  });
 });
 
 describe('generateDefaultConfig', () => {

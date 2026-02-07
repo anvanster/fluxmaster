@@ -3,15 +3,20 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockInitialize = vi.fn().mockResolvedValue(undefined);
 const mockShutdown = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@fluxmaster/core', () => ({
-  loadConfig: vi.fn().mockResolvedValue({
-    auth: { copilot: { accountType: 'individual', port: 4141 }, preferDirectApi: false },
-    agents: { defaults: { maxTokens: 8192, temperature: 0.7 }, list: [] },
-    mcpServers: { global: [] },
-    plugins: [],
-    retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 30000 },
-  }),
-}));
+vi.mock('@fluxmaster/core', async () => {
+  const actual = await vi.importActual<typeof import('@fluxmaster/core')>('@fluxmaster/core');
+  return {
+    ...actual,
+    loadConfig: vi.fn().mockResolvedValue({
+      auth: { copilot: { accountType: 'individual', port: 4141 }, preferDirectApi: false },
+      agents: { defaults: { maxTokens: 8192, temperature: 0.7 }, list: [] },
+      mcpServers: { global: [] },
+      plugins: [],
+      retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 30000 },
+      pricing: { 'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 } },
+    }),
+  };
+});
 
 vi.mock('@fluxmaster/auth', () => ({
   AuthManager: vi.fn().mockImplementation(() => ({
@@ -67,6 +72,8 @@ describe('bootstrap', () => {
     expect(ctx.toolRegistry).toBeDefined();
     expect(ctx.mcpServerManager).toBeDefined();
     expect(ctx.usageTracker).toBeDefined();
+    expect(ctx.eventBus).toBeDefined();
+    expect(ctx.costCalculator).toBeDefined();
 
     expect(mockInitialize).toHaveBeenCalledOnce();
     expect(mockInitializeMcp).toHaveBeenCalledOnce();

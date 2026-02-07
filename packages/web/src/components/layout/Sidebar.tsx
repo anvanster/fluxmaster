@@ -9,9 +9,9 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: ROUTES.CHAT, label: 'Chat', icon: MessageSquare },
-  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-  { to: ROUTES.ADMIN, label: 'Admin', icon: Settings },
+  { to: ROUTES.CHAT, label: 'Chat', icon: MessageSquare, shortcut: '1' },
+  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard, shortcut: '2' },
+  { to: ROUTES.ADMIN, label: 'Admin', icon: Settings, shortcut: '3' },
 ];
 
 export function Sidebar({ connectionStatus }: SidebarProps) {
@@ -22,7 +22,7 @@ export function Sidebar({ connectionStatus }: SidebarProps) {
       </div>
 
       <nav className="flex-1 px-2">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon, shortcut }) => (
           <NavLink
             key={to}
             to={to}
@@ -34,7 +34,8 @@ export function Sidebar({ connectionStatus }: SidebarProps) {
             }
           >
             <Icon size={16} />
-            {label}
+            <span className="flex-1">{label}</span>
+            <span className="text-xs text-gray-600">{shortcut}</span>
           </NavLink>
         ))}
       </nav>

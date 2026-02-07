@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentStatus, McpServerConfig } from '@fluxmaster/core';
+import type { AgentConfig, AgentStatus, McpServerConfig, EventBus } from '@fluxmaster/core';
 import { AgentNotFoundError, createChildLogger } from '@fluxmaster/core';
 import type { AuthManager } from '@fluxmaster/auth';
 import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
@@ -12,6 +12,7 @@ const logger = createChildLogger('agent-manager');
 export interface AgentManagerOptions {
   mcpServerManager?: McpServerManager;
   globalMcpServers?: McpServerConfig[];
+  eventBus?: EventBus;
 }
 
 export interface AgentInfo {
@@ -27,6 +28,7 @@ export class AgentManager {
   private sessionManager: SessionManager;
   private mcpServerManager?: McpServerManager;
   private globalMcpServers: McpServerConfig[];
+  private eventBus?: EventBus;
 
   constructor(authManager: AuthManager, toolRegistry: ToolRegistry, options?: AgentManagerOptions) {
     this.authManager = authManager;
@@ -34,6 +36,7 @@ export class AgentManager {
     this.sessionManager = new SessionManager();
     this.mcpServerManager = options?.mcpServerManager;
     this.globalMcpServers = options?.globalMcpServers ?? [];
+    this.eventBus = options?.eventBus;
   }
 
   async initializeMcp(): Promise<void> {
@@ -72,6 +75,7 @@ export class AgentManager {
     this.workers.set(config.id, worker);
 
     logger.info({ agentId: config.id, model: config.model }, 'Agent spawned');
+    this.eventBus?.emit({ type: 'agent:spawned', agentId: config.id, model: config.model, timestamp: new Date() });
     return worker;
   }
 
@@ -103,6 +107,7 @@ export class AgentManager {
     worker.terminate();
     this.workers.delete(agentId);
     logger.info({ agentId }, 'Agent killed');
+    this.eventBus?.emit({ type: 'agent:killed', agentId, timestamp: new Date() });
   }
 
   getAgent(agentId: string): AgentWorker | undefined {

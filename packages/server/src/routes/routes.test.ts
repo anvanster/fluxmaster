@@ -3,10 +3,15 @@ import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import type { AppContext } from '../context.js';
 import { UsageTracker } from '../usage-tracker.js';
+import { CostCalculator } from '../cost-calculator.js';
+import { EventBus } from '@fluxmaster/core';
 import { registerRoutes } from './index.js';
 import { errorHandler } from '../middleware/error-handler.js';
 
 function createMockContext(overrides?: Partial<AppContext>): AppContext {
+  const usageTracker = new UsageTracker();
+  const agentModels = new Map([['default', 'gpt-4o']]);
+  const pricing = { 'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 } };
   return {
     config: {
       auth: { preferDirectApi: false },
@@ -58,7 +63,9 @@ function createMockContext(overrides?: Partial<AppContext>): AppContext {
       startServer: vi.fn().mockResolvedValue([{ name: 'filesystem/read_file' }]),
       stopServer: vi.fn().mockResolvedValue(undefined),
     } as any,
-    usageTracker: new UsageTracker(),
+    usageTracker,
+    eventBus: new EventBus(),
+    costCalculator: new CostCalculator(usageTracker, pricing, agentModels),
     ...overrides,
   };
 }
@@ -299,6 +306,16 @@ describe('System routes', () => {
     const body = res.json();
     expect(body.total.inputTokens).toBe(100);
     expect(body.byAgent['agent-1']).toBeDefined();
+  });
+
+  it('GET /api/system/cost — returns cost breakdown', async () => {
+    ctx.usageTracker.record('default', 1_000_000, 500_000);
+    const res = await app.inject({ method: 'GET', url: '/api/system/cost' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    // gpt-4o: input 1M * 2.5/1M + output 500K * 10/1M = 2.5 + 5.0 = 7.5
+    expect(body.totalCost).toBeCloseTo(7.5);
+    expect(body.byAgent['default']).toBeCloseTo(7.5);
   });
 });
 

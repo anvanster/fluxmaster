@@ -85,4 +85,16 @@ describe('useChatStore', () => {
     expect(stream?.toolCalls[0].status).toBe('done');
     expect(stream?.toolCalls[0].result).toBe('file contents');
   });
+
+  it('imports conversation and switches to agent', () => {
+    const messages = [
+      { id: '1', role: 'user' as const, content: 'imported msg', timestamp: new Date() },
+    ];
+    useChatStore.getState().importConversation('imported-agent', messages);
+
+    expect(useChatStore.getState().activeAgentId).toBe('imported-agent');
+    const msgs = useChatStore.getState().conversations.get('imported-agent');
+    expect(msgs).toHaveLength(1);
+    expect(msgs![0].content).toBe('imported msg');
+  });
 });
