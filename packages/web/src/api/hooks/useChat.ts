@@ -6,7 +6,7 @@ import type { WsServerMessage } from '@fluxmaster/api-types';
 let wsClient: WsClient | null = null;
 
 export function useChat() {
-  const { activeAgentId, addUserMessage, startStream, appendStreamDelta, addStreamToolCall, updateStreamToolResult, finalizeStream } = useChatStore();
+  const { activeAgentId, addUserMessage, startStream, appendStreamDelta, addStreamToolCall, updateStreamToolResult, finalizeStream, setSuggestions } = useChatStore();
   const requestCounter = useRef(0);
 
   useEffect(() => {
@@ -35,11 +35,19 @@ export function useChat() {
             finalizeStream(activeAgentId, msg.requestId, `Error: ${msg.error}`);
           }
           break;
+        case 'ai_feature':
+          if (msg.feature === 'suggestions' && msg.requestId) {
+            const data = msg.data as { suggestions?: string[] };
+            if (data?.suggestions) {
+              setSuggestions(msg.requestId, data.suggestions);
+            }
+          }
+          break;
       }
     });
 
     return unsubscribe;
-  }, [activeAgentId, appendStreamDelta, addStreamToolCall, finalizeStream]);
+  }, [activeAgentId, appendStreamDelta, addStreamToolCall, finalizeStream, setSuggestions]);
 
   const sendMessage = useCallback(
     (text: string) => {

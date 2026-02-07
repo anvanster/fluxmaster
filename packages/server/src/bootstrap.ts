@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { loadConfig, EventBus, type FluxmasterConfig } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
 import { AgentManager } from '@fluxmaster/agents';
@@ -5,6 +6,14 @@ import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserT
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
 import { CostCalculator } from './cost-calculator.js';
+import { DatabaseManager } from './db/database-manager.js';
+import { SqliteConversationStore } from './db/stores/conversation-store.js';
+import { SqliteEventStore } from './db/stores/event-store.js';
+import { SqliteUsageStore } from './db/stores/usage-store.js';
+import { SqliteRequestStore } from './db/stores/request-store.js';
+import { PersistentUsageTracker } from './persistent-usage-tracker.js';
+import { EventPersister } from './events/event-persister.js';
+import { RequestTracker } from './events/request-tracker.js';
 
 export interface BootstrapOptions {
   configPath: string;
@@ -12,6 +21,20 @@ export interface BootstrapOptions {
 
 export async function bootstrap(options: BootstrapOptions): Promise<AppContext> {
   const config = await loadConfig(options.configPath);
+
+  // Initialize SQLite database
+  const dbPath = path.resolve(config.database?.path ?? 'fluxmaster.db');
+  const databaseManager = new DatabaseManager(dbPath, {
+    walMode: config.database?.walMode ?? true,
+  });
+  databaseManager.migrate();
+
+  // Create stores
+  const db = databaseManager.connection;
+  const conversationStore = new SqliteConversationStore(db);
+  const eventStore = new SqliteEventStore(db);
+  const usageStore = new SqliteUsageStore(db);
+  const requestStore = new SqliteRequestStore(db);
 
   const authManager = new AuthManager({
     copilot: config.auth.copilot,
@@ -21,13 +44,21 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
 
   const toolRegistry = createDefaultRegistry();
   const mcpServerManager = new McpServerManager(toolRegistry);
-  const usageTracker = new UsageTracker();
+  const usageTracker = new PersistentUsageTracker(usageStore);
   const eventBus = new EventBus();
+
+  // Start event persistence and request tracking
+  const eventPersister = new EventPersister(eventBus, eventStore);
+  eventPersister.start();
+
+  const requestTracker = new RequestTracker(eventBus, requestStore);
+  requestTracker.start();
 
   const agentManager = new AgentManager(authManager, toolRegistry, {
     mcpServerManager,
     globalMcpServers: config.mcpServers.global,
     eventBus,
+    conversationStore,
   });
 
   await agentManager.initializeMcp();
@@ -89,6 +120,9 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     usageTracker,
     eventBus,
     costCalculator,
+    databaseManager,
+    conversationStore,
+    requestStore,
   };
 }
 
@@ -96,4 +130,5 @@ export async function shutdown(ctx: AppContext): Promise<void> {
   ctx.agentManager.killAll();
   await ctx.mcpServerManager.stopAll();
   await ctx.authManager.shutdown();
+  ctx.databaseManager.close();
 }

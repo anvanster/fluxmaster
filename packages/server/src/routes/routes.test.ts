@@ -66,6 +66,23 @@ function createMockContext(overrides?: Partial<AppContext>): AppContext {
     usageTracker,
     eventBus: new EventBus(),
     costCalculator: new CostCalculator(usageTracker, pricing, agentModels),
+    databaseManager: { isOpen: true, close: vi.fn() } as any,
+    conversationStore: {
+      createConversation: vi.fn(),
+      saveMessage: vi.fn(),
+      getMessages: vi.fn().mockReturnValue([]),
+      clearMessages: vi.fn(),
+      listConversations: vi.fn().mockReturnValue([]),
+      getConversation: vi.fn(),
+      deleteConversation: vi.fn(),
+      updateConversationTitle: vi.fn(),
+    } as any,
+    requestStore: {
+      saveRequest: vi.fn(),
+      updateRequest: vi.fn(),
+      getRequest: vi.fn(),
+      listRequests: vi.fn().mockReturnValue([]),
+    } as any,
     ...overrides,
   };
 }

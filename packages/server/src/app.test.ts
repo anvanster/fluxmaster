@@ -42,6 +42,9 @@ function createMockContext(): AppContext {
     usageTracker: new UsageTracker(),
     eventBus: new EventBus(),
     costCalculator: new CostCalculator(new UsageTracker(), {}, new Map()),
+    databaseManager: { isOpen: true, close: vi.fn() } as any,
+    conversationStore: {} as any,
+    requestStore: { saveRequest: vi.fn(), updateRequest: vi.fn(), getRequest: vi.fn(), listRequests: vi.fn().mockReturnValue([]) } as any,
   };
 }
 

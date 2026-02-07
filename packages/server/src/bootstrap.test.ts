@@ -14,6 +14,7 @@ vi.mock('@fluxmaster/core', async () => {
       plugins: [],
       retry: { maxAttempts: 3, baseDelayMs: 1000, maxDelayMs: 30000 },
       pricing: { 'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 } },
+      database: { path: ':memory:', walMode: false },
     }),
   };
 });
@@ -56,6 +57,62 @@ vi.mock('@fluxmaster/tools', () => ({
   })),
 }));
 
+const mockMigrate = vi.fn();
+const mockClose = vi.fn();
+const mockDbConnection = {};
+
+vi.mock('./db/database-manager.js', () => ({
+  DatabaseManager: vi.fn().mockImplementation(() => ({
+    migrate: mockMigrate,
+    close: mockClose,
+    connection: mockDbConnection,
+    isOpen: true,
+  })),
+}));
+
+vi.mock('./db/stores/conversation-store.js', () => ({
+  SqliteConversationStore: vi.fn().mockImplementation(() => ({})),
+}));
+
+vi.mock('./db/stores/event-store.js', () => ({
+  SqliteEventStore: vi.fn().mockImplementation(() => ({})),
+}));
+
+vi.mock('./db/stores/usage-store.js', () => ({
+  SqliteUsageStore: vi.fn().mockImplementation(() => ({
+    recordUsage: vi.fn(),
+    getAgentUsage: vi.fn().mockReturnValue({ inputTokens: 0, outputTokens: 0, requestCount: 0 }),
+    getTotalUsage: vi.fn().mockReturnValue({ inputTokens: 0, outputTokens: 0, requestCount: 0 }),
+    getAllUsage: vi.fn().mockReturnValue({}),
+    getUsageHistory: vi.fn().mockReturnValue([]),
+  })),
+}));
+
+const mockEventPersisterStart = vi.fn();
+
+vi.mock('./db/stores/request-store.js', () => ({
+  SqliteRequestStore: vi.fn().mockImplementation(() => ({
+    saveRequest: vi.fn(),
+    updateRequest: vi.fn(),
+    getRequest: vi.fn(),
+    listRequests: vi.fn().mockReturnValue([]),
+  })),
+}));
+
+vi.mock('./events/event-persister.js', () => ({
+  EventPersister: vi.fn().mockImplementation(() => ({
+    start: mockEventPersisterStart,
+    stop: vi.fn(),
+  })),
+}));
+
+vi.mock('./events/request-tracker.js', () => ({
+  RequestTracker: vi.fn().mockImplementation(() => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+  })),
+}));
+
 import { bootstrap, shutdown } from './bootstrap.js';
 
 describe('bootstrap', () => {
@@ -74,9 +131,24 @@ describe('bootstrap', () => {
     expect(ctx.usageTracker).toBeDefined();
     expect(ctx.eventBus).toBeDefined();
     expect(ctx.costCalculator).toBeDefined();
+    expect(ctx.databaseManager).toBeDefined();
+    expect(ctx.conversationStore).toBeDefined();
+    expect(ctx.requestStore).toBeDefined();
 
     expect(mockInitialize).toHaveBeenCalledOnce();
     expect(mockInitializeMcp).toHaveBeenCalledOnce();
+  });
+
+  it('creates DatabaseManager and runs migrations', async () => {
+    await bootstrap({ configPath: 'fluxmaster.config.json' });
+
+    expect(mockMigrate).toHaveBeenCalledOnce();
+  });
+
+  it('starts EventPersister', async () => {
+    await bootstrap({ configPath: 'fluxmaster.config.json' });
+
+    expect(mockEventPersisterStart).toHaveBeenCalledOnce();
   });
 
   it('returns a functional UsageTracker', async () => {
@@ -88,7 +160,7 @@ describe('bootstrap', () => {
 });
 
 describe('shutdown', () => {
-  it('shuts down all managers in correct order', async () => {
+  it('shuts down all managers and closes database', async () => {
     const ctx = await bootstrap({ configPath: 'fluxmaster.config.json' });
     vi.clearAllMocks();
 
@@ -97,5 +169,6 @@ describe('shutdown', () => {
     expect(mockKillAll).toHaveBeenCalledOnce();
     expect(mockStopAll).toHaveBeenCalledOnce();
     expect(mockShutdown).toHaveBeenCalledOnce();
+    expect(mockClose).toHaveBeenCalledOnce();
   });
 });

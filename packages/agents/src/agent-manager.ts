@@ -1,4 +1,4 @@
-import type { AgentConfig, AgentStatus, McpServerConfig, EventBus } from '@fluxmaster/core';
+import type { AgentConfig, AgentStatus, McpServerConfig, EventBus, IConversationStore } from '@fluxmaster/core';
 import { AgentNotFoundError, createChildLogger } from '@fluxmaster/core';
 import type { AuthManager } from '@fluxmaster/auth';
 import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
@@ -13,6 +13,7 @@ export interface AgentManagerOptions {
   mcpServerManager?: McpServerManager;
   globalMcpServers?: McpServerConfig[];
   eventBus?: EventBus;
+  conversationStore?: IConversationStore;
 }
 
 export interface AgentInfo {
@@ -33,7 +34,7 @@ export class AgentManager {
   constructor(authManager: AuthManager, toolRegistry: ToolRegistry, options?: AgentManagerOptions) {
     this.authManager = authManager;
     this.toolRegistry = toolRegistry;
-    this.sessionManager = new SessionManager();
+    this.sessionManager = new SessionManager(options?.conversationStore);
     this.mcpServerManager = options?.mcpServerManager;
     this.globalMcpServers = options?.globalMcpServers ?? [];
     this.eventBus = options?.eventBus;

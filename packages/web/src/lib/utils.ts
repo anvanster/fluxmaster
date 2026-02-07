@@ -17,3 +17,9 @@ export function formatCost(amount: number): string {
   if (amount < 0.01) return '<$0.01';
   return `$${amount.toFixed(2)}`;
 }
+
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null) return '-';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}

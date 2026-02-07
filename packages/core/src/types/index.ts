@@ -31,6 +31,26 @@ export type {
 } from './agent.js';
 
 export type { FluxmasterConfig, McpServerConfig, BrowserConfig } from './config.js';
-export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema } from './config.js';
+export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema } from './config.js';
 
 export type { FluxmasterPlugin, PluginConfig } from './plugin.js';
+
+export type {
+  StoredMessage,
+  ConversationSummary,
+  StoredEvent,
+  UsageEntry,
+  AggregatedUsage,
+  ToolCallTiming,
+  RequestRecord,
+  IConversationStore,
+  IEventStore,
+  IUsageStore,
+  IRequestStore,
+} from './database.js';
+
+export type {
+  AiFeatureConfig,
+  ConversationTitle,
+  SuggestedFollowUp,
+} from './ai-features.js';

@@ -2,6 +2,7 @@ import { useMemo, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { useUiStore } from '@/stores/ui-store';
+import { useDebugStore } from '@/stores/debug-store';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
 import { useKeyboardShortcuts, type ShortcutDef } from '@/hooks/useKeyboardShortcuts';
@@ -14,6 +15,7 @@ export function AppLayout() {
   const shortcutsModalOpen = useUiStore((s) => s.shortcutsModalOpen);
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
   const setShortcutsModalOpen = useUiStore((s) => s.setShortcutsModalOpen);
+  const toggleDebugPanel = useDebugStore((s) => s.toggleDebugPanel);
   const navigate = useNavigate();
 
   const closeAll = useCallback(() => {
@@ -30,9 +32,10 @@ export function AppLayout() {
       const el = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input"]');
       el?.focus();
     }, description: 'Focus chat input' },
+    { key: 'd', meta: true, action: toggleDebugPanel, description: 'Toggle debug panel' },
     { key: '?', action: () => setShortcutsModalOpen(true), description: 'Show shortcuts' },
     { key: 'Escape', action: closeAll, description: 'Close modal', allowInInput: true },
-  ], [navigate, setCommandPaletteOpen, setShortcutsModalOpen, closeAll]);
+  ], [navigate, setCommandPaletteOpen, setShortcutsModalOpen, toggleDebugPanel, closeAll]);
 
   useKeyboardShortcuts(shortcuts);
 
@@ -40,8 +43,9 @@ export function AppLayout() {
     { id: 'chat', label: 'Go to Chat', category: 'Navigation', action: () => navigate(ROUTES.CHAT), shortcut: 'Cmd+1' },
     { id: 'dashboard', label: 'Go to Dashboard', category: 'Navigation', action: () => navigate(ROUTES.DASHBOARD), shortcut: 'Cmd+2' },
     { id: 'admin', label: 'Go to Admin', category: 'Navigation', action: () => navigate(ROUTES.ADMIN), shortcut: 'Cmd+3' },
+    { id: 'debug', label: 'Toggle Debug Panel', category: 'Tools', action: toggleDebugPanel, shortcut: 'Cmd+D' },
     { id: 'shortcuts', label: 'Show Keyboard Shortcuts', category: 'Help', action: () => setShortcutsModalOpen(true), shortcut: '?' },
-  ], [navigate, setShortcutsModalOpen]);
+  ], [navigate, setShortcutsModalOpen, toggleDebugPanel]);
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100">

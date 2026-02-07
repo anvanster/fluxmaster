@@ -33,6 +33,9 @@ function createMockContext(): AppContext {
     usageTracker: new UsageTracker(),
     eventBus: new EventBus(),
     costCalculator: new CostCalculator(new UsageTracker(), {}, new Map()),
+    databaseManager: { isOpen: true, close: vi.fn() } as any,
+    conversationStore: {} as any,
+    requestStore: {} as any,
   };
 }
 
@@ -134,5 +137,81 @@ describe('WsHandler', () => {
     const usage = ctx.usageTracker.getAgent('default');
     expect(usage.inputTokens).toBe(100);
     expect(usage.outputTokens).toBe(50);
+  });
+
+  it('emits EventBus events during message lifecycle', async () => {
+    (ctx.agentManager.routeMessageStream as any).mockImplementation(
+      async (_agentId: string, _text: string, onEvent: (event: any) => void) => {
+        onEvent({ type: 'text_delta', text: 'Hi' });
+        onEvent({ type: 'tool_use_start', toolUse: { id: 't1', name: 'read_file' } });
+        onEvent({ type: 'tool_use_end', toolUse: { id: 't1', name: 'read_file', input: {} } });
+        return {
+          text: 'Hi',
+          usage: { inputTokens: 10, outputTokens: 5 },
+          iterations: 1,
+          allContent: [
+            { type: 'tool_use', id: 't1', name: 'read_file', input: {} },
+            { type: 'tool_result', toolUseId: 't1', content: 'file data', isError: false },
+          ],
+        };
+      },
+    );
+
+    const events: any[] = [];
+    ctx.eventBus.on('message:started', (e) => events.push(e));
+    ctx.eventBus.on('message:text_delta', (e) => events.push(e));
+    ctx.eventBus.on('tool:call_started', (e) => events.push(e));
+    ctx.eventBus.on('tool:call_completed', (e) => events.push(e));
+    ctx.eventBus.on('message:completed', (e) => events.push(e));
+
+    const socket = createMockSocket();
+    handler.handleConnection(socket, 'conn-1');
+
+    socket.emit('message', JSON.stringify({
+      type: 'message',
+      agentId: 'default',
+      text: 'hi',
+      requestId: 'req-1',
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const types = events.map((e) => e.type);
+    expect(types).toContain('message:started');
+    expect(types).toContain('message:text_delta');
+    expect(types).toContain('tool:call_started');
+    expect(types).toContain('tool:call_completed');
+    expect(types).toContain('message:completed');
+
+    const started = events.find((e) => e.type === 'message:started');
+    expect(started.agentId).toBe('default');
+    expect(started.requestId).toBe('req-1');
+
+    const completed = events.find((e) => e.type === 'message:completed');
+    expect(completed.usage).toEqual({ inputTokens: 10, outputTokens: 5 });
+  });
+
+  it('emits message:error event on failure', async () => {
+    (ctx.agentManager.routeMessageStream as any).mockRejectedValue(new Error('Agent crashed'));
+
+    const errors: any[] = [];
+    ctx.eventBus.on('message:error', (e) => errors.push(e));
+
+    const socket = createMockSocket();
+    handler.handleConnection(socket, 'conn-1');
+
+    socket.emit('message', JSON.stringify({
+      type: 'message',
+      agentId: 'default',
+      text: 'hi',
+      requestId: 'req-1',
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].agentId).toBe('default');
+    expect(errors[0].requestId).toBe('req-1');
+    expect(errors[0].error).toBe('Agent crashed');
   });
 });

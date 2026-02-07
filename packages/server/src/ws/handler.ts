@@ -52,6 +52,9 @@ export class WsHandler {
     msg: Extract<WsClientMessage, { type: 'message' }>,
   ): Promise<void> {
     const { agentId, text, requestId } = msg;
+    const eventBus = this.ctx.eventBus;
+
+    eventBus.emit({ type: 'message:started', agentId, requestId, timestamp: new Date() });
 
     try {
       const toolInputs = new Map<string, unknown>();
@@ -63,9 +66,11 @@ export class WsHandler {
           if (event.type === 'text_delta' && event.text) {
             const delta: WsServerMessage = { type: 'text_delta', text: event.text, requestId };
             socket.send(JSON.stringify(delta));
+            eventBus.emit({ type: 'message:text_delta', agentId, requestId, text: event.text, timestamp: new Date() });
           } else if (event.type === 'tool_use_start' && event.toolUse) {
             const toolStart: WsServerMessage = { type: 'tool_use_start', toolName: event.toolUse.name, requestId };
             socket.send(JSON.stringify(toolStart));
+            eventBus.emit({ type: 'tool:call_started', agentId, requestId, toolName: event.toolUse.name, timestamp: new Date() });
           } else if (event.type === 'tool_use_end' && event.toolUse) {
             toolInputs.set(event.toolUse.name, event.toolUse.input);
           }
@@ -87,6 +92,7 @@ export class WsHandler {
             requestId,
           };
           socket.send(JSON.stringify(toolResult));
+          eventBus.emit({ type: 'tool:call_completed', agentId, requestId, toolName, result: typeof block.content === 'string' ? block.content : JSON.stringify(block.content), isError: block.isError ?? false, timestamp: new Date() });
         }
       }
 
@@ -101,6 +107,7 @@ export class WsHandler {
         requestId,
       };
       socket.send(JSON.stringify(complete));
+      eventBus.emit({ type: 'message:completed', agentId, requestId, text: result.text, usage: result.usage, iterations: result.iterations, timestamp: new Date() });
     } catch (err) {
       const errorMsg: WsServerMessage = {
         type: 'error',
@@ -108,6 +115,7 @@ export class WsHandler {
         requestId,
       };
       socket.send(JSON.stringify(errorMsg));
+      eventBus.emit({ type: 'message:error', agentId, requestId, error: err instanceof Error ? err.message : 'Unknown error', timestamp: new Date() });
     }
   }
 

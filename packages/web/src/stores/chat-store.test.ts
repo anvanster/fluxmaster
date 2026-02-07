@@ -7,6 +7,7 @@ describe('useChatStore', () => {
       activeAgentId: 'default',
       conversations: new Map(),
       streaming: new Map(),
+      suggestions: new Map(),
     });
   });
 

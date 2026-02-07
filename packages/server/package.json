@@ -21,6 +21,10 @@
     "@fluxmaster/auth": "*",
     "@fluxmaster/core": "*",
     "@fluxmaster/tools": "*",
+    "better-sqlite3": "^12.6.2",
     "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
   }
 }

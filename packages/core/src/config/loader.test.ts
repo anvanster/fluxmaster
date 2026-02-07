@@ -250,6 +250,65 @@ describe('loadConfig', () => {
     expect(loaded.pricing['claude-opus-4']).toEqual({ inputPer1M: 15, outputPer1M: 75 });
   });
 
+  it('provides default database config', async () => {
+    const configPath = path.join(tmpDir, 'defaultdb.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.database.path).toBe('fluxmaster.db');
+    expect(loaded.database.walMode).toBe(true);
+    expect(loaded.database.maxEventAge).toBe(604800);
+  });
+
+  it('allows custom database config', async () => {
+    const config = {
+      auth: {},
+      database: {
+        path: '/data/custom.db',
+        walMode: false,
+        maxEventAge: 86400,
+      },
+    };
+    const configPath = path.join(tmpDir, 'customdb.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.database.path).toBe('/data/custom.db');
+    expect(loaded.database.walMode).toBe(false);
+    expect(loaded.database.maxEventAge).toBe(86400);
+  });
+
+  it('provides default AI feature config', async () => {
+    const configPath = path.join(tmpDir, 'defaultai.json');
+    await fs.writeFile(configPath, JSON.stringify({ auth: {} }));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.aiFeatures.autoTitle).toBe(true);
+    expect(loaded.aiFeatures.conversationSummary).toBe(false);
+    expect(loaded.aiFeatures.suggestedFollowUps).toBe(true);
+    expect(loaded.aiFeatures.model).toBe('gpt-4o-mini');
+  });
+
+  it('allows custom AI feature config', async () => {
+    const config = {
+      auth: {},
+      aiFeatures: {
+        autoTitle: false,
+        conversationSummary: true,
+        suggestedFollowUps: false,
+        model: 'claude-haiku-3.5',
+      },
+    };
+    const configPath = path.join(tmpDir, 'customai.json');
+    await fs.writeFile(configPath, JSON.stringify(config));
+
+    const loaded = await loadConfig(configPath);
+    expect(loaded.aiFeatures.autoTitle).toBe(false);
+    expect(loaded.aiFeatures.conversationSummary).toBe(true);
+    expect(loaded.aiFeatures.suggestedFollowUps).toBe(false);
+    expect(loaded.aiFeatures.model).toBe('claude-haiku-3.5');
+  });
+
   it('allows custom pricing overrides', async () => {
     const config = {
       auth: {},

@@ -49,6 +49,19 @@ const ModelPricingSchema = z.object({
   outputPer1M: z.number().nonnegative(),
 });
 
+const DatabaseConfigSchema = z.object({
+  path: z.string().default('fluxmaster.db'),
+  walMode: z.boolean().default(true),
+  maxEventAge: z.number().int().positive().default(604800), // 7 days in seconds
+}).default({});
+
+const AiFeatureConfigSchema = z.object({
+  autoTitle: z.boolean().default(true),
+  conversationSummary: z.boolean().default(false),
+  suggestedFollowUps: z.boolean().default(true),
+  model: z.string().default('gpt-4o-mini'),
+}).default({});
+
 export const FluxmasterConfigSchema = z.object({
   auth: z.object({
     copilot: CopilotConfigSchema.optional(),
@@ -74,8 +87,10 @@ export const FluxmasterConfigSchema = z.object({
     'claude-haiku-3.5': { inputPer1M: 0.8, outputPer1M: 4 },
     'claude-opus-4': { inputPer1M: 15, outputPer1M: 75 },
   }),
+  database: DatabaseConfigSchema,
+  aiFeatures: AiFeatureConfigSchema,
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;
 
-export { AgentConfigSchema, BrowserConfigSchema };
+export { AgentConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema };

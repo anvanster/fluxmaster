@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -5,6 +6,7 @@ import { ChatPage } from '@/pages/ChatPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { AdminPage } from '@/pages/AdminPage';
 import { ROUTES } from '@/lib/constants';
+import { hasLocalData, migrateLocalStorageToServer } from '@/lib/migration';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +15,12 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
+  useEffect(() => {
+    if (hasLocalData()) {
+      migrateLocalStorageToServer();
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
