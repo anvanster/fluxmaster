@@ -5,6 +5,7 @@ import { AdminView } from './AdminView';
 // Mock all child components to isolate AdminView tab logic
 vi.mock('./ConfigEditor', () => ({ ConfigEditor: () => <div data-testid="config-editor">config</div> }));
 vi.mock('./AgentProvisioner', () => ({ AgentProvisioner: () => <div data-testid="agent-provisioner">agents</div> }));
+vi.mock('./AgentList', () => ({ AgentList: () => <div data-testid="agent-list">agent list</div> }));
 vi.mock('./McpServerList', () => ({ McpServerList: () => <div data-testid="mcp-server-list">mcp</div> }));
 vi.mock('./PluginList', () => ({ PluginList: () => <div data-testid="plugin-list">plugins</div> }));
 vi.mock('./AuthStatus', () => ({ AuthStatus: () => <div data-testid="auth-status">auth</div> }));

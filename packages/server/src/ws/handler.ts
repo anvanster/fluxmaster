@@ -54,6 +54,8 @@ export class WsHandler {
     const { agentId, text, requestId } = msg;
 
     try {
+      const toolInputs = new Map<string, unknown>();
+
       const result = await this.ctx.agentManager.routeMessageStream(
         agentId,
         text,
@@ -64,9 +66,29 @@ export class WsHandler {
           } else if (event.type === 'tool_use_start' && event.toolUse) {
             const toolStart: WsServerMessage = { type: 'tool_use_start', toolName: event.toolUse.name, requestId };
             socket.send(JSON.stringify(toolStart));
+          } else if (event.type === 'tool_use_end' && event.toolUse) {
+            toolInputs.set(event.toolUse.name, event.toolUse.input);
           }
         },
       );
+
+      // Send tool results from the completed content blocks
+      for (const block of result.allContent) {
+        if (block.type === 'tool_result') {
+          const toolUseBlock = result.allContent.find(
+            (b) => b.type === 'tool_use' && b.id === block.toolUseId,
+          );
+          const toolName = toolUseBlock && 'name' in toolUseBlock ? toolUseBlock.name : 'unknown';
+          const toolResult: WsServerMessage = {
+            type: 'tool_result',
+            toolName,
+            content: typeof block.content === 'string' ? block.content : JSON.stringify(block.content),
+            isError: block.isError ?? false,
+            requestId,
+          };
+          socket.send(JSON.stringify(toolResult));
+        }
+      }
 
       this.ctx.usageTracker.record(agentId, result.usage.inputTokens, result.usage.outputTokens);
 

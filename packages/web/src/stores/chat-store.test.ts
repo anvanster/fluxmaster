@@ -67,4 +67,22 @@ describe('useChatStore', () => {
 
     expect(useChatStore.getState().conversations.has('default')).toBe(false);
   });
+
+  it('clears all conversations', () => {
+    useChatStore.getState().addUserMessage('default', 'msg-1', 'hello');
+    useChatStore.getState().addUserMessage('coder', 'msg-2', 'hi');
+    useChatStore.getState().clearAllConversations();
+
+    expect(useChatStore.getState().conversations.size).toBe(0);
+  });
+
+  it('updates tool result in stream', () => {
+    useChatStore.getState().startStream('req-1');
+    useChatStore.getState().addStreamToolCall('req-1', 'read_file');
+    useChatStore.getState().updateStreamToolResult('req-1', 'read_file', 'file contents', false);
+
+    const stream = useChatStore.getState().streaming.get('req-1');
+    expect(stream?.toolCalls[0].status).toBe('done');
+    expect(stream?.toolCalls[0].result).toBe('file contents');
+  });
 });

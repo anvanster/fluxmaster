@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ConfigEditor } from './ConfigEditor';
 import { AgentProvisioner } from './AgentProvisioner';
+import { AgentList } from './AgentList';
 import { McpServerList } from './McpServerList';
 import { PluginList } from './PluginList';
 import { AuthStatus } from './AuthStatus';
@@ -32,7 +33,12 @@ export function AdminView() {
       </div>
       <div className="p-6">
         {activeTab === 'Config' && <ConfigEditor />}
-        {activeTab === 'Agents' && <AgentProvisioner />}
+        {activeTab === 'Agents' && (
+          <div className="space-y-6">
+            <AgentList />
+            <AgentProvisioner />
+          </div>
+        )}
         {activeTab === 'MCP' && <McpServerList />}
         {activeTab === 'Plugins' && <PluginList />}
         {activeTab === 'Auth' && <AuthStatus />}

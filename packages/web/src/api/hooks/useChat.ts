@@ -6,7 +6,7 @@ import type { WsServerMessage } from '@fluxmaster/api-types';
 let wsClient: WsClient | null = null;
 
 export function useChat() {
-  const { activeAgentId, addUserMessage, startStream, appendStreamDelta, addStreamToolCall, finalizeStream } = useChatStore();
+  const { activeAgentId, addUserMessage, startStream, appendStreamDelta, addStreamToolCall, updateStreamToolResult, finalizeStream } = useChatStore();
   const requestCounter = useRef(0);
 
   useEffect(() => {
@@ -23,6 +23,9 @@ export function useChat() {
           break;
         case 'tool_use_start':
           addStreamToolCall(msg.requestId, msg.toolName);
+          break;
+        case 'tool_result':
+          updateStreamToolResult(msg.requestId, msg.toolName, msg.content, msg.isError);
           break;
         case 'message_complete':
           finalizeStream(activeAgentId, msg.requestId, msg.text);

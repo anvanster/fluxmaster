@@ -24,10 +24,17 @@ describe('ChatMessage', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
 
-  it('renders assistant message with tool calls', () => {
+  it('renders assistant message with markdown and tool calls', () => {
     render(<ChatMessage message={assistantMsg} />);
     expect(screen.getByText('Hi there!')).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
     expect(screen.getByText('read_file')).toBeInTheDocument();
+  });
+
+  it('renders user message as plain text (no markdown)', () => {
+    render(<ChatMessage message={userMsg} />);
+    expect(screen.getByTestId('chat-message')).toBeInTheDocument();
+    expect(screen.queryByTestId('markdown-content')).not.toBeInTheDocument();
   });
 
   it('has correct test id', () => {

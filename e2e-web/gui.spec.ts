@@ -87,6 +87,70 @@ test.describe('Chat Page', () => {
     const messages = page.getByTestId('chat-message');
     await expect(messages).toHaveCount(2, { timeout: 30_000 });
   });
+
+  test('assistant response renders markdown', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+    await input.fill('Reply with: **bold text** and `inline code`');
+    await page.getByLabel('Send message').click();
+
+    // Wait for response
+    await expect(page.getByTestId('chat-message')).toHaveCount(2, { timeout: 30_000 });
+
+    // Assistant message should have markdown-content wrapper
+    await expect(page.getByTestId('markdown-content')).toBeVisible();
+  });
+
+  test('user message does not render markdown', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+    await input.fill('This has **bold** but should be plain');
+    await page.getByLabel('Send message').click();
+
+    // User message should appear but without markdown wrapper
+    await expect(page.locator('text=This has **bold** but should be plain')).toBeVisible();
+  });
+
+  test('clear conversation button appears after sending', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+
+    // No clear button initially
+    await expect(page.getByLabel('Clear conversation')).not.toBeVisible();
+
+    await input.fill('hello');
+    await page.getByLabel('Send message').click();
+    await expect(page.getByTestId('chat-message')).toHaveCount(2, { timeout: 30_000 });
+
+    // Clear button should now be visible
+    await expect(page.getByLabel('Clear conversation')).toBeVisible();
+  });
+
+  test('clear conversation removes messages', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+    await input.fill('hello');
+    await page.getByLabel('Send message').click();
+    await expect(page.getByTestId('chat-message')).toHaveCount(2, { timeout: 30_000 });
+
+    // Clear conversation
+    await page.getByLabel('Clear conversation').click();
+
+    // Messages should be gone, empty state shown
+    await expect(page.getByTestId('chat-message')).toHaveCount(0);
+    await expect(page.getByText('No messages yet')).toBeVisible();
+  });
+
+  test('sends message with Enter key', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+    await input.fill('hello via enter');
+    await input.press('Enter');
+
+    // Message should appear
+    await expect(page.locator('text=hello via enter')).toBeVisible();
+    await expect(input).toHaveValue('');
+  });
 });
 
 test.describe('Dashboard Page', () => {
@@ -145,6 +209,22 @@ test.describe('Admin Page — Config Tab', () => {
 });
 
 test.describe('Admin Page — Agents Tab', () => {
+  test('shows agent list with running agents', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('agent-count')).toBeVisible();
+    // At least the default agent should be running
+    await expect(page.getByTestId('agent-list-item').first()).toBeVisible();
+  });
+
+  test('agent list shows kill buttons', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByLabel(/Kill agent/)).toBeVisible();
+  });
+
   test('shows agent spawn form', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
@@ -204,6 +284,23 @@ test.describe('Admin Page — Auth Tab', () => {
     await expect(page.getByText('Copilot Ready')).toBeVisible();
     await expect(page.getByText('Claude CLI')).toBeVisible();
     await expect(page.getByText('Direct Providers')).toBeVisible();
+  });
+});
+
+test.describe('Chat Persistence', () => {
+  test('conversations persist after page reload', async ({ page }) => {
+    await page.goto('/');
+    const input = page.getByTestId('chat-input');
+    await input.fill('persist me');
+    await page.getByLabel('Send message').click();
+    await expect(page.getByTestId('chat-message')).toHaveCount(2, { timeout: 30_000 });
+
+    // Reload page
+    await page.reload();
+
+    // Messages should still be there
+    await expect(page.locator('text=persist me')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('chat-message')).toHaveCount(2);
   });
 });
 
