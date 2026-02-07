@@ -17,6 +17,8 @@
     "typecheck": "tsc -b",
     "dev": "tsx packages/cli/src/index.ts",
     "dev:server": "tsx packages/server/src/index.ts",
+    "dev:web": "cd packages/web && vite",
+    "dev:all": "./scripts/dev.sh",
     "fluxmaster": "node packages/cli/dist/index.js",
     "start": "node packages/server/dist/index.js"
   },
