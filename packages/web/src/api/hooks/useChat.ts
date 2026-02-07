@@ -27,6 +27,11 @@ export function useChat() {
         case 'message_complete':
           finalizeStream(activeAgentId, msg.requestId, msg.text);
           break;
+        case 'error':
+          if (msg.requestId) {
+            finalizeStream(activeAgentId, msg.requestId, `Error: ${msg.error}`);
+          }
+          break;
       }
     });
 

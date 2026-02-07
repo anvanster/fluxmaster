@@ -15,7 +15,7 @@
     "list": [
       {
         "id": "default",
-        "model": "claude-sonnet-4",
+        "model": "gpt-4o",
         "systemPrompt": "You are a helpful assistant.",
         "tools": [
           "read_file",

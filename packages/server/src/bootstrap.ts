@@ -29,6 +29,22 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
 
   await agentManager.initializeMcp();
 
+  // Auto-spawn agents from config
+  for (const agentConfig of config.agents.list) {
+    try {
+      await agentManager.spawnAgent({
+        id: agentConfig.id,
+        model: agentConfig.model,
+        systemPrompt: agentConfig.systemPrompt,
+        tools: agentConfig.tools ?? [],
+        maxTokens: agentConfig.maxTokens ?? config.agents.defaults.maxTokens,
+        temperature: agentConfig.temperature ?? config.agents.defaults.temperature,
+      });
+    } catch {
+      // Agent spawn failures are non-fatal
+    }
+  }
+
   // Load plugins
   const pluginLoader = new PluginLoader();
   for (const pluginConfig of config.plugins ?? []) {
