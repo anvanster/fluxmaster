@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { CopilotConfigSchema } from './auth.js';
+import { ToolSecurityPolicySchema } from './tool-security.js';
+import { BudgetConfigSchema } from './budget.js';
 
 export const McpServerConfigSchema = z.object({
   name: z.string().min(1),
@@ -89,8 +91,10 @@ export const FluxmasterConfigSchema = z.object({
   }),
   database: DatabaseConfigSchema,
   aiFeatures: AiFeatureConfigSchema,
+  security: ToolSecurityPolicySchema,
+  budgets: BudgetConfigSchema,
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;
 
-export { AgentConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema };
+export { AgentConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema, ToolSecurityPolicySchema, BudgetConfigSchema };

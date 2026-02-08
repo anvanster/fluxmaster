@@ -9,6 +9,9 @@ import { systemRoutes } from './system.js';
 import { pluginRoutes } from './plugins.js';
 import { conversationRoutes } from './conversations.js';
 import { requestRoutes } from './requests.js';
+import { securityRoutes } from './security.js';
+import { budgetRoutes } from './budgets.js';
+import { workflowRoutes } from './workflows.js';
 
 export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Promise<void> {
   await app.register(agentRoutes(ctx), { prefix: '/api/agents' });
@@ -20,4 +23,7 @@ export async function registerRoutes(app: FastifyInstance, ctx: AppContext): Pro
   await app.register(pluginRoutes(ctx), { prefix: '/api/plugins' });
   await app.register(conversationRoutes(ctx), { prefix: '/api/conversations' });
   await app.register(requestRoutes(ctx), { prefix: '/api/requests' });
+  await app.register(securityRoutes(ctx), { prefix: '/api/security' });
+  await app.register(budgetRoutes(ctx), { prefix: '/api/budgets' });
+  await app.register(workflowRoutes(ctx), { prefix: '/api/workflows' });
 }

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { authCommand } from './commands/auth.js';
 import { runCommand } from './commands/run.js';
+import { workflowCommand } from './commands/workflow.js';
 
 export function createApp(): Command {
   const program = new Command();
@@ -14,6 +15,7 @@ export function createApp(): Command {
   program.addCommand(initCommand());
   program.addCommand(authCommand());
   program.addCommand(runCommand());
+  program.addCommand(workflowCommand());
 
   return program;
 }

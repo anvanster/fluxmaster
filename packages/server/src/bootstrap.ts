@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { loadConfig, EventBus, type FluxmasterConfig } from '@fluxmaster/core';
+import { loadConfig, EventBus, type FluxmasterConfig, type Provider } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
-import { AgentManager } from '@fluxmaster/agents';
+import { AgentManager, createDelegateTool } from '@fluxmaster/agents';
 import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools, PluginLoader } from '@fluxmaster/tools';
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
@@ -11,9 +11,15 @@ import { SqliteConversationStore } from './db/stores/conversation-store.js';
 import { SqliteEventStore } from './db/stores/event-store.js';
 import { SqliteUsageStore } from './db/stores/usage-store.js';
 import { SqliteRequestStore } from './db/stores/request-store.js';
+import { SqliteToolAuditStore } from './db/stores/tool-audit-store.js';
+import { SqliteBudgetStore } from './db/stores/budget-store.js';
 import { PersistentUsageTracker } from './persistent-usage-tracker.js';
 import { EventPersister } from './events/event-persister.js';
 import { RequestTracker } from './events/request-tracker.js';
+import { ToolSecurityManager } from './security/tool-security-manager.js';
+import { BudgetManager } from './budget/budget-manager.js';
+import { SqliteWorkflowStore } from './db/stores/workflow-store.js';
+import { WorkflowEngine } from './workflows/workflow-engine.js';
 
 export interface BootstrapOptions {
   configPath: string;
@@ -35,6 +41,9 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
   const eventStore = new SqliteEventStore(db);
   const usageStore = new SqliteUsageStore(db);
   const requestStore = new SqliteRequestStore(db);
+  const toolAuditStore = new SqliteToolAuditStore(db);
+  const budgetStore = new SqliteBudgetStore(db);
+  const workflowStore = new SqliteWorkflowStore(db);
 
   const authManager = new AuthManager({
     copilot: config.auth.copilot,
@@ -54,12 +63,32 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
   const requestTracker = new RequestTracker(eventBus, requestStore);
   requestTracker.start();
 
+  // Initialize tool security
+  const toolSecurityManager = new ToolSecurityManager(config.security, eventBus, toolAuditStore);
+
+  // Track model + provider mappings for all agents
+  const agentModels = new Map<string, string>();
+  const agentProviders = new Map<string, Provider>();
+  eventBus.on('agent:spawned', (event) => {
+    agentModels.set(event.agentId, event.model);
+    agentProviders.set(event.agentId, event.provider);
+  });
+
+  const costCalculator = new CostCalculator(usageTracker, config.pricing, agentModels);
+
   const agentManager = new AgentManager(authManager, toolRegistry, {
     mcpServerManager,
     globalMcpServers: config.mcpServers.global,
     eventBus,
     conversationStore,
+    onBeforeToolExecute: (agentId, toolName, args) =>
+      toolSecurityManager.canExecute(agentId, toolName, args),
+    onAfterToolExecute: (agentId, toolName) =>
+      toolSecurityManager.recordExecution(agentId, toolName),
   });
+
+  // Register delegate tool for inter-agent communication
+  toolRegistry.register(createDelegateTool(agentManager));
 
   await agentManager.initializeMcp();
 
@@ -100,16 +129,16 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     }
   }
 
-  const agentModels = new Map<string, string>();
-  for (const agentConfig of config.agents.list) {
-    agentModels.set(agentConfig.id, agentConfig.model);
-  }
-  const costCalculator = new CostCalculator(usageTracker, config.pricing, agentModels);
+  // Initialize budget manager
+  const budgetManager = new BudgetManager(config.budgets ?? {}, eventBus, budgetStore);
 
-  // Track model mappings for dynamically spawned agents
-  eventBus.on('agent:spawned', (event) => {
-    agentModels.set(event.agentId, event.model);
+  // Wire cost tracking to budget manager
+  eventBus.on('cost:updated', (event) => {
+    budgetManager.recordUsage(event.agentId, event.cost, event.unit);
   });
+
+  // Initialize workflow engine
+  const workflowEngine = new WorkflowEngine(agentManager, eventBus, workflowStore);
 
   return {
     config,
@@ -123,6 +152,14 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     databaseManager,
     conversationStore,
     requestStore,
+    toolAuditStore,
+    toolSecurityManager,
+    budgetStore,
+    budgetManager,
+    workflowStore,
+    workflowEngine,
+    agentModels,
+    agentProviders,
   };
 }
 

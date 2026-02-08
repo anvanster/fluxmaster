@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isCopilotModel, inferProvider, getFullModelId, listCopilotModels } from './registry.js';
+import { isCopilotModel, inferProvider, getFullModelId, listCopilotModels, getCopilotMultiplier } from './registry.js';
 
 describe('Model Registry', () => {
   describe('isCopilotModel', () => {
@@ -59,6 +59,35 @@ describe('Model Registry', () => {
       expect(models).toContain('gpt-5');
       expect(models).toContain('gemini-3-pro-preview');
       expect(models.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getCopilotMultiplier', () => {
+    it('returns 0 for free models', () => {
+      expect(getCopilotMultiplier('gpt-4.1')).toBe(0);
+      expect(getCopilotMultiplier('gpt-5-mini')).toBe(0);
+    });
+
+    it('returns fractional multiplier for budget premium models', () => {
+      expect(getCopilotMultiplier('claude-haiku-4.5')).toBe(0.33);
+      expect(getCopilotMultiplier('grok-code-fast-1')).toBe(0.25);
+      expect(getCopilotMultiplier('gemini-3-flash-preview')).toBe(0.33);
+    });
+
+    it('returns 1 for standard premium models', () => {
+      expect(getCopilotMultiplier('claude-sonnet-4')).toBe(1);
+      expect(getCopilotMultiplier('claude-sonnet-4.5')).toBe(1);
+      expect(getCopilotMultiplier('gpt-5')).toBe(1);
+      expect(getCopilotMultiplier('gemini-2.5-pro')).toBe(1);
+    });
+
+    it('returns high multiplier for expensive premium models', () => {
+      expect(getCopilotMultiplier('claude-opus-4.5')).toBe(3);
+      expect(getCopilotMultiplier('claude-opus-4.6')).toBe(3);
+    });
+
+    it('defaults to 1 for unknown models', () => {
+      expect(getCopilotMultiplier('some-unknown-model')).toBe(1);
     });
   });
 });

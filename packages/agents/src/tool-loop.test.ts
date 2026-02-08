@@ -236,6 +236,129 @@ describe('runToolLoop', () => {
     expect(adapter.sendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks tool execution when onBeforeToolExecute denies', async () => {
+    const adapter = createMockAdapter([
+      {
+        content: [
+          { type: 'tool_use', id: 'call_1', name: 'bash_execute', input: { command: 'rm -rf /' } },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      },
+      {
+        content: [{ type: 'text', text: 'Tool was denied' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 15, outputTokens: 10 },
+      },
+    ]);
+
+    const registry = new ToolRegistry();
+    const tool = createMockTool('bash_execute', 'executed');
+    registry.register(tool);
+
+    const result = await runToolLoop(
+      [{ role: 'user', content: 'Run dangerous command' }],
+      {
+        adapter,
+        model: 'test-model',
+        tools: [],
+        toolRegistry: registry,
+        maxTokens: 1024,
+        temperature: 0.7,
+        agentId: 'agent-1',
+        onBeforeToolExecute: (_agentId, toolName) => {
+          if (toolName === 'bash_execute') {
+            return { allowed: false, reason: 'Tool is dangerous' };
+          }
+          return { allowed: true };
+        },
+      },
+    );
+
+    expect(result.text).toBe('Tool was denied');
+    // Tool should NOT have been executed
+    expect(tool.execute).not.toHaveBeenCalled();
+    // The tool result should contain the security denial message
+    const toolResults = result.allContent.filter(b => b.type === 'tool_result');
+    expect(toolResults).toHaveLength(1);
+    expect((toolResults[0] as { content: string }).content).toContain('denied');
+  });
+
+  it('allows tool execution when onBeforeToolExecute approves', async () => {
+    const adapter = createMockAdapter([
+      {
+        content: [
+          { type: 'tool_use', id: 'call_1', name: 'read_file', input: { path: '/tmp/test' } },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      },
+      {
+        content: [{ type: 'text', text: 'File contents' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 15, outputTokens: 10 },
+      },
+    ]);
+
+    const registry = new ToolRegistry();
+    const tool = createMockTool('read_file', 'file data');
+    registry.register(tool);
+
+    const result = await runToolLoop(
+      [{ role: 'user', content: 'Read the file' }],
+      {
+        adapter,
+        model: 'test-model',
+        tools: [],
+        toolRegistry: registry,
+        maxTokens: 1024,
+        temperature: 0.7,
+        agentId: 'agent-1',
+        onBeforeToolExecute: () => ({ allowed: true }),
+      },
+    );
+
+    expect(result.text).toBe('File contents');
+    expect(tool.execute).toHaveBeenCalledOnce();
+  });
+
+  it('skips security check when no callback provided', async () => {
+    const adapter = createMockAdapter([
+      {
+        content: [
+          { type: 'tool_use', id: 'call_1', name: 'my_tool', input: {} },
+        ],
+        stopReason: 'tool_use',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      },
+      {
+        content: [{ type: 'text', text: 'Done' }],
+        stopReason: 'end_turn',
+        usage: { inputTokens: 15, outputTokens: 10 },
+      },
+    ]);
+
+    const registry = new ToolRegistry();
+    const tool = createMockTool('my_tool', 'result');
+    registry.register(tool);
+
+    const result = await runToolLoop(
+      [{ role: 'user', content: 'Use tool' }],
+      {
+        adapter,
+        model: 'test-model',
+        tools: [],
+        toolRegistry: registry,
+        maxTokens: 1024,
+        temperature: 0.7,
+        // No onBeforeToolExecute or agentId
+      },
+    );
+
+    expect(result.text).toBe('Done');
+    expect(tool.execute).toHaveBeenCalledOnce();
+  });
+
   it('stops looping after maxIterations', async () => {
     // Always returns tool_use
     const adapter = createMockAdapter(

@@ -1,5 +1,8 @@
 import type { AgentStatus, ContentBlock, Message } from '@fluxmaster/core';
 
+// Re-export core types consumed by web package
+export type { FluxmasterConfig } from '@fluxmaster/core';
+
 // --- Agent DTOs ---
 
 export interface SpawnAgentRequest {
@@ -19,6 +22,16 @@ export interface AgentInfoResponse {
   id: string;
   model: string;
   status: AgentStatus;
+  tools?: string[];
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface ModelInfo {
+  id: string;
+  provider: string;
+  premiumMultiplier: number;
 }
 
 export interface MessageResponse {
@@ -69,9 +82,15 @@ export interface UsageResponse {
   byAgent: Record<string, { inputTokens: number; outputTokens: number; requestCount: number }>;
 }
 
+export interface AgentCostEntry {
+  amount: number;
+  unit: 'cost' | 'premium_requests';
+}
+
 export interface CostResponse {
   totalCost: number;
-  byAgent: Record<string, number>;
+  totalPremiumRequests: number;
+  byAgent: Record<string, AgentCostEntry>;
 }
 
 // --- Conversation DTOs ---
@@ -130,6 +149,99 @@ export interface RequestDetailResponse {
 
 export interface RequestListResponse {
   requests: RequestDetailResponse[];
+}
+
+// --- Security DTOs ---
+
+export interface AuditEntryResponse {
+  id: string;
+  agentId: string;
+  toolName: string;
+  args: string;
+  result: string;
+  isError: boolean;
+  permitted: boolean;
+  denialReason?: string;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface AuditListResponse {
+  entries: AuditEntryResponse[];
+}
+
+export interface SecurityPolicyResponse {
+  policy: {
+    defaultLevel: string;
+    toolLevels: Record<string, string>;
+    agentPermissions: Record<string, {
+      allowlist?: string[];
+      denylist?: string[];
+      maxCallsPerMinute?: number;
+    }>;
+  };
+}
+
+// --- Budget DTOs ---
+
+export interface BudgetStatusResponse {
+  id: string;
+  period: string;
+  unit: string;
+  maxCost: number;
+  currentCost: number;
+  percentage: number;
+  exceeded: boolean;
+  warningThresholds: number[];
+  triggeredThresholds: number[];
+}
+
+export interface BudgetListResponse {
+  budgets: BudgetStatusResponse[];
+}
+
+export interface BudgetAlertResponse {
+  id: string;
+  budgetId: string;
+  type: 'warning' | 'exceeded';
+  unit: string;
+  threshold: number;
+  currentCost: number;
+  maxCost: number;
+  timestamp: string;
+}
+
+export interface BudgetAlertListResponse {
+  alerts: BudgetAlertResponse[];
+}
+
+// --- Workflow DTOs ---
+
+export interface WorkflowDefinitionResponse {
+  id: string;
+  name: string;
+  description?: string;
+  inputs: Record<string, { type: string; description?: string }>;
+  steps: unknown[];
+}
+
+export interface WorkflowListResponse {
+  workflows: WorkflowDefinitionResponse[];
+}
+
+export interface WorkflowRunResponse {
+  id: string;
+  workflowId: string;
+  status: string;
+  inputs: Record<string, unknown>;
+  stepResults: Record<string, unknown>;
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface WorkflowRunListResponse {
+  runs: WorkflowRunResponse[];
 }
 
 // --- Error DTOs ---

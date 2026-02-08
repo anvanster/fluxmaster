@@ -4,10 +4,15 @@ import type { ToolRegistry } from '@fluxmaster/tools';
 import type { IModelAdapter, AdapterMessage } from './adapters/adapter.interface.js';
 import { AnthropicAdapter } from './adapters/anthropic-adapter.js';
 import { OpenAIAdapter } from './adapters/openai-adapter.js';
-import { runToolLoop, type ToolLoopResult } from './tool-loop.js';
+import { runToolLoop, type ToolLoopResult, type ToolSecurityCheck } from './tool-loop.js';
 import { runToolLoopStream } from './tool-loop-stream.js';
 import type { StreamEvent } from './adapters/adapter.interface.js';
 import { SessionManager } from './session/session-manager.js';
+
+export interface AgentWorkerOptions {
+  onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
+  onAfterToolExecute?: (agentId: string, toolName: string) => void;
+}
 
 const logger = createChildLogger('agent-worker');
 
@@ -18,12 +23,14 @@ export class AgentWorker {
   private sessionManager: SessionManager;
   private sessionId: string;
   private _status: AgentStatus = 'idle';
+  private securityOptions?: AgentWorkerOptions;
 
   constructor(
     config: AgentConfig,
     endpoint: ModelEndpoint,
     toolRegistry: ToolRegistry,
     sessionManager: SessionManager,
+    securityOptions?: AgentWorkerOptions,
   ) {
     this.config = config;
     this.toolRegistry = toolRegistry;
@@ -35,6 +42,8 @@ export class AgentWorker {
     } else {
       this.adapter = new OpenAIAdapter(endpoint.baseUrl, endpoint.apiKey);
     }
+
+    this.securityOptions = securityOptions;
 
     // Create session
     const session = sessionManager.create(config);
@@ -86,6 +95,8 @@ export class AgentWorker {
         toolRegistry: this.toolRegistry,
         maxTokens: this.config.maxTokens ?? 8192,
         temperature: this.config.temperature ?? 0.7,
+        agentId: this.config.id,
+        onBeforeToolExecute: this.securityOptions?.onBeforeToolExecute,
       });
 
       // Store assistant response in session
@@ -141,6 +152,8 @@ export class AgentWorker {
         maxTokens: this.config.maxTokens ?? 8192,
         temperature: this.config.temperature ?? 0.7,
         onStreamEvent,
+        agentId: this.config.id,
+        onBeforeToolExecute: this.securityOptions?.onBeforeToolExecute,
       });
 
       this.sessionManager.addMessage(this.sessionId, {

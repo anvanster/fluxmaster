@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { listCopilotModels, inferProvider, getCopilotMultiplier } from '@fluxmaster/auth';
 import type { AppContext } from '../context.js';
-import type { HealthResponse, UsageResponse, CostResponse } from '../shared/api-types.js';
+import type { HealthResponse, UsageResponse, CostResponse, ModelInfo } from '../shared/api-types.js';
 
 const startTime = Date.now();
 
@@ -24,11 +25,22 @@ export function systemRoutes(ctx: AppContext): FastifyPluginAsync {
       return response;
     });
 
+    // GET /api/models
+    fastify.get('/models', async () => {
+      const models: ModelInfo[] = listCopilotModels().map((id) => ({
+        id,
+        provider: inferProvider(id) as string,
+        premiumMultiplier: getCopilotMultiplier(id),
+      }));
+      return models;
+    });
+
     // GET /api/cost
     fastify.get('/cost', async () => {
       const response: CostResponse = {
         totalCost: ctx.costCalculator.getTotalCost(),
-        byAgent: ctx.costCalculator.getCostBreakdown(),
+        totalPremiumRequests: ctx.costCalculator.getTotalPremiumRequests(ctx.agentProviders),
+        byAgent: ctx.costCalculator.getProviderAwareBreakdown(ctx.agentProviders),
       };
       return response;
     });

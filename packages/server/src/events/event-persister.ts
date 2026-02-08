@@ -23,6 +23,18 @@ export class EventPersister {
       'mcp:server_started',
       'mcp:server_stopped',
       'cost:updated',
+      'security:tool_denied',
+      'security:rate_limited',
+      'security:audit_logged',
+      'budget:warning',
+      'budget:exceeded',
+      'budget:request_blocked',
+      'workflow:started',
+      'workflow:step_started',
+      'workflow:step_completed',
+      'workflow:step_failed',
+      'workflow:completed',
+      'workflow:failed',
     ];
 
     for (const type of eventTypes) {

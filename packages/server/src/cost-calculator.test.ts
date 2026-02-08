@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CostCalculator, type ModelPricing } from './cost-calculator.js';
 import { UsageTracker } from './usage-tracker.js';
+import type { Provider } from '@fluxmaster/core';
 
 const DEFAULT_PRICING: Record<string, ModelPricing> = {
   'gpt-4o': { inputPer1M: 2.5, outputPer1M: 10 },
@@ -107,5 +108,107 @@ describe('CostCalculator', () => {
   it('calculateCost returns zero for agent with zero usage', () => {
     agentModels.set('zero', 'gpt-4o');
     expect(calc.calculateCost('zero')).toBe(0);
+  });
+
+  describe('calculateCostForTokens', () => {
+    it('calculates cost from raw token counts', () => {
+      // gpt-4o: input 2.5/1M, output 10/1M
+      const cost = calc.calculateCostForTokens('gpt-4o', 1_000_000, 500_000);
+      // 1M * 2.5/1M + 500K * 10/1M = 2.5 + 5.0 = 7.5
+      expect(cost).toBeCloseTo(7.5);
+    });
+
+    it('returns zero for unknown model', () => {
+      expect(calc.calculateCostForTokens('unknown-model', 1_000_000, 1_000_000)).toBe(0);
+    });
+  });
+
+  describe('getProviderAwareBreakdown', () => {
+    let agentProviders: Map<string, Provider>;
+
+    beforeEach(() => {
+      agentProviders = new Map();
+    });
+
+    it('returns dollar cost for direct API agents', () => {
+      agentModels.set('direct-agent', 'gpt-4o');
+      agentProviders.set('direct-agent', 'openai');
+      tracker.record('direct-agent', 1_000_000, 500_000);
+
+      const breakdown = calc.getProviderAwareBreakdown(agentProviders);
+      expect(breakdown['direct-agent']).toEqual({
+        amount: 7.5, // 1M * 2.5/1M + 500K * 10/1M
+        unit: 'cost',
+      });
+    });
+
+    it('returns premium requests for copilot agents', () => {
+      agentModels.set('copilot-agent', 'claude-sonnet-4');
+      agentProviders.set('copilot-agent', 'copilot');
+      tracker.record('copilot-agent', 100_000, 50_000); // 1 request
+      tracker.record('copilot-agent', 100_000, 50_000); // 2 requests
+
+      const breakdown = calc.getProviderAwareBreakdown(agentProviders);
+      // claude-sonnet-4 = 1x multiplier, 2 requests = 2.0
+      expect(breakdown['copilot-agent']).toEqual({
+        amount: 2,
+        unit: 'premium_requests',
+      });
+    });
+
+    it('returns zero premium requests for free copilot models', () => {
+      agentModels.set('free-agent', 'gpt-4o');
+      agentProviders.set('free-agent', 'copilot');
+      tracker.record('free-agent', 100_000, 50_000);
+
+      const breakdown = calc.getProviderAwareBreakdown(agentProviders);
+      // gpt-4o = 0x multiplier, 1 request = 0
+      expect(breakdown['free-agent']).toEqual({
+        amount: 0,
+        unit: 'premium_requests',
+      });
+    });
+
+    it('handles mixed providers', () => {
+      agentModels.set('cop', 'claude-opus-4.5');
+      agentModels.set('api', 'claude-sonnet-4');
+      agentProviders.set('cop', 'copilot');
+      agentProviders.set('api', 'anthropic');
+      tracker.record('cop', 100_000, 50_000);
+      tracker.record('api', 200_000, 100_000);
+
+      const breakdown = calc.getProviderAwareBreakdown(agentProviders);
+      // cop: copilot, claude-opus-4.5 = 3x, 1 request = 3.0
+      expect(breakdown['cop']).toEqual({ amount: 3, unit: 'premium_requests' });
+      // api: anthropic, claude-sonnet-4 = dollar cost
+      expect(breakdown['api'].unit).toBe('cost');
+      expect(breakdown['api'].amount).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getTotalPremiumRequests', () => {
+    it('sums premium requests across copilot agents', () => {
+      const agentProviders = new Map<string, Provider>();
+      agentModels.set('a1', 'claude-sonnet-4'); // 1x
+      agentModels.set('a2', 'claude-opus-4.5'); // 3x
+      agentProviders.set('a1', 'copilot');
+      agentProviders.set('a2', 'copilot');
+      tracker.record('a1', 100_000, 50_000); // 1 request * 1x = 1
+      tracker.record('a2', 100_000, 50_000); // 1 request * 3x = 3
+
+      expect(calc.getTotalPremiumRequests(agentProviders)).toBe(4);
+    });
+
+    it('excludes direct API agents from premium total', () => {
+      const agentProviders = new Map<string, Provider>();
+      agentModels.set('cop', 'claude-sonnet-4');
+      agentModels.set('api', 'gpt-4o');
+      agentProviders.set('cop', 'copilot');
+      agentProviders.set('api', 'openai');
+      tracker.record('cop', 100_000, 50_000);
+      tracker.record('api', 100_000, 50_000);
+
+      expect(calc.getTotalPremiumRequests(agentProviders)).toBe(1);
+    });
   });
 });

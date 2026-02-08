@@ -9,6 +9,8 @@ vi.mock('./AgentList', () => ({ AgentList: () => <div data-testid="agent-list">a
 vi.mock('./McpServerList', () => ({ McpServerList: () => <div data-testid="mcp-server-list">mcp</div> }));
 vi.mock('./PluginList', () => ({ PluginList: () => <div data-testid="plugin-list">plugins</div> }));
 vi.mock('./AuthStatus', () => ({ AuthStatus: () => <div data-testid="auth-status">auth</div> }));
+vi.mock('./ToolAuditLog', () => ({ ToolAuditLog: () => <div data-testid="tool-audit-log">audit</div> }));
+vi.mock('./ToolPermissions', () => ({ ToolPermissions: () => <div data-testid="tool-permissions">perms</div> }));
 
 describe('AdminView', () => {
   it('renders Config tab by default', () => {
@@ -40,5 +42,12 @@ describe('AdminView', () => {
     render(<AdminView />);
     fireEvent.click(screen.getByText('Auth'));
     expect(screen.getByTestId('auth-status')).toBeInTheDocument();
+  });
+
+  it('switches to Security tab', () => {
+    render(<AdminView />);
+    fireEvent.click(screen.getByText('Security'));
+    expect(screen.getByTestId('tool-permissions')).toBeInTheDocument();
+    expect(screen.getByTestId('tool-audit-log')).toBeInTheDocument();
   });
 });

@@ -1,12 +1,15 @@
 import { useAgents } from '@/api/hooks/useAgents';
 import { useHealth, useUsage } from '@/api/hooks/useSystem';
 import { useCost } from '@/api/hooks/useCost';
+import { useBudgets, useBudgetAlerts } from '@/api/hooks/useBudgets';
 import { AgentStatusGrid } from './AgentStatusGrid';
 import { UsageSummary } from './UsageSummary';
 import { UsageChart } from './UsageChart';
 import { SystemHealth } from './SystemHealth';
 import { CostSummary } from './CostSummary';
 import { CostByAgent } from './CostByAgent';
+import { BudgetProgress } from './BudgetProgress';
+import { BudgetAlerts } from './BudgetAlerts';
 import { Spinner } from '@/components/common/Spinner';
 
 export function DashboardView() {
@@ -14,6 +17,8 @@ export function DashboardView() {
   const { data: health } = useHealth();
   const { data: usage } = useUsage();
   const { data: cost } = useCost();
+  const { data: budgets } = useBudgets();
+  const { data: budgetAlerts } = useBudgetAlerts({ limit: 10 });
 
   if (agentsLoading) {
     return (
@@ -42,8 +47,15 @@ export function DashboardView() {
 
       {cost && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <CostSummary totalCost={cost.totalCost} />
+          <CostSummary totalCost={cost.totalCost} totalPremiumRequests={cost.totalPremiumRequests} />
           <CostByAgent byAgent={cost.byAgent} />
+        </div>
+      )}
+
+      {budgets && budgets.budgets.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BudgetProgress budgets={budgets.budgets} />
+          {budgetAlerts && <BudgetAlerts alerts={budgetAlerts.alerts} />}
         </div>
       )}
 

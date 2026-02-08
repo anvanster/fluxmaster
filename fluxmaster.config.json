@@ -14,9 +14,28 @@
     },
     "list": [
       {
-        "id": "default",
+        "id": "coordinator",
         "model": "gpt-4o",
-        "systemPrompt": "You are a helpful assistant.",
+        "systemPrompt": "You are the coordinator agent. You can delegate tasks to specialized agents:\n- 'researcher': for finding information, analysis, and research tasks\n- 'coder': for writing code, debugging, and technical implementation\n\nUse the delegate_to_agent tool to send tasks to these agents and synthesize their responses for the user.",
+        "tools": [
+          "delegate_to_agent",
+          "read_file",
+          "list_files"
+        ]
+      },
+      {
+        "id": "researcher",
+        "model": "gpt-4o",
+        "systemPrompt": "You are a research specialist agent. You analyze information, answer knowledge questions, and provide detailed explanations. Be thorough and cite your reasoning.",
+        "tools": [
+          "read_file",
+          "list_files"
+        ]
+      },
+      {
+        "id": "coder",
+        "model": "gpt-4o",
+        "systemPrompt": "You are a coding specialist agent. You write clean, efficient code, debug issues, and provide technical solutions. Always include code examples when relevant.",
         "tools": [
           "read_file",
           "write_file",

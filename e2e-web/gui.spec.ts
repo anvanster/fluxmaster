@@ -58,10 +58,10 @@ test.describe('Chat Page', () => {
     await expect(page.getByLabel('Send message')).toBeVisible();
   });
 
-  test('shows agent selector with default agent', async ({ page }) => {
+  test('shows agent selector with first agent', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('agent-selector')).toBeVisible();
-    await expect(page.getByTestId('agent-selector').getByText('default')).toBeVisible();
+    await expect(page.getByTestId('agent-selector').getByText('coordinator')).toBeVisible();
   });
 
   test('can type in chat input', async ({ page }) => {
@@ -166,10 +166,10 @@ test.describe('Dashboard Page', () => {
 
   test('shows agent status card', async ({ page }) => {
     await page.goto('/dashboard');
-    const card = page.getByTestId('agent-status-card');
+    const card = page.getByTestId('agent-status-card').first();
     await expect(card).toBeVisible({ timeout: 10_000 });
-    await expect(card.getByText('default')).toBeVisible();
-    await expect(page.getByText('Model: gpt-4o')).toBeVisible();
+    await expect(card.getByText('coordinator')).toBeVisible();
+    await expect(card.getByText('Model: gpt-4o')).toBeVisible();
   });
 
   test('shows usage summary', async ({ page }) => {
@@ -214,43 +214,168 @@ test.describe('Admin Page — Agents Tab', () => {
     await page.getByRole('button', { name: 'Agents' }).click();
     await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('agent-count')).toBeVisible();
-    // At least the default agent should be running
     await expect(page.getByTestId('agent-list-item').first()).toBeVisible();
+  });
+
+  test('agent list shows provider badges', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+    // All agents use gpt-4o so should show OpenAI badge
+    await expect(page.getByTestId('provider-badge').first()).toHaveText('OpenAI');
+  });
+
+  test('agent list shows tool count', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+    // Coordinator has tools (delegate_to_agent, read_file, list_files)
+    await expect(page.getByTestId('tool-count').first()).toBeVisible();
   });
 
   test('agent list shows kill buttons', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
     await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByLabel(/Kill agent/)).toBeVisible();
+    await expect(page.getByLabel(/Kill agent/).first()).toBeVisible();
   });
 
-  test('shows agent spawn form', async ({ page }) => {
+  test('expanding agent shows details', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+
+    // Expand coordinator
+    await page.getByTestId('expand-coordinator').click();
+    await expect(page.getByTestId('details-coordinator')).toBeVisible();
+    // Should show system prompt
+    await expect(page.getByTestId('details-coordinator').getByText('System Prompt')).toBeVisible();
+    await expect(page.getByTestId('details-coordinator').getByText('coordinator agent')).toBeVisible();
+    // Should show tools
+    await expect(page.getByTestId('details-coordinator').getByText('Tools')).toBeVisible();
+    await expect(page.getByTestId('details-coordinator').getByText('delegate_to_agent', { exact: true })).toBeVisible();
+    // Should show temperature and max tokens
+    await expect(page.getByTestId('details-coordinator').getByText('Temperature')).toBeVisible();
+    await expect(page.getByTestId('details-coordinator').getByText('Max Tokens')).toBeVisible();
+  });
+
+  test('collapsing agent hides details', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+
+    // Expand then collapse
+    await page.getByTestId('expand-coordinator').click();
+    await expect(page.getByTestId('details-coordinator')).toBeVisible();
+    await page.getByTestId('expand-coordinator').click();
+    await expect(page.getByTestId('details-coordinator')).not.toBeVisible();
+  });
+
+  test('shows agent spawn form with model dropdown', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
     await expect(page.getByTestId('agent-provisioner')).toBeVisible();
-    await expect(page.getByText('Spawn Agent')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Spawn Agent' })).toBeVisible();
+    await expect(page.getByTestId('agent-model-select')).toBeVisible();
+    await expect(page.getByTestId('agent-system-prompt')).toBeVisible();
+    await expect(page.getByTestId('tool-selector')).toBeVisible();
+  });
+
+  test('model dropdown has grouped options from server', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-provisioner')).toBeVisible();
+    const select = page.getByTestId('agent-model-select');
+    // Should have optgroups for providers (openai, anthropic, google, xai)
+    const optgroups = select.locator('optgroup');
+    await expect(optgroups).toHaveCount(4);
+    // Should list gpt-4o as an option (options inside <select> are hidden in DOM, check by value)
+    const gpt4oOption = select.locator('option[value="gpt-4o"]');
+    await expect(gpt4oOption).toHaveCount(1);
+  });
+
+  test('selecting model shows cost badge', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-provisioner')).toBeVisible();
+    await page.getByTestId('agent-model-select').selectOption('gpt-4o');
+    await expect(page.getByTestId('model-cost-badge')).toHaveText('free premium');
+  });
+
+  test('tool selector shows available tools', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('tool-selector')).toBeVisible();
+    // Should show tool checkboxes
+    await expect(page.getByTestId('tool-selector').locator('input[type="checkbox"]').first()).toBeVisible();
+  });
+
+  test('advanced section toggles visibility', async ({ page }) => {
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('advanced-toggle')).toBeVisible();
+    // Initially hidden
+    await expect(page.getByTestId('advanced-section')).not.toBeVisible();
+    // Click to expand
+    await page.getByTestId('advanced-toggle').click();
+    await expect(page.getByTestId('advanced-section')).toBeVisible();
+    await expect(page.getByTestId('temperature-slider')).toBeVisible();
+    await expect(page.getByTestId('temperature-value')).toHaveText('0.7');
+    await expect(page.getByTestId('max-tokens-input')).toBeVisible();
   });
 
   test('spawn button is disabled when fields are empty', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
-    await expect(page.getByRole('button', { name: 'Spawn' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Spawn Agent' })).toBeDisabled();
   });
 
-  test('spawn button enables when both fields filled', async ({ page }) => {
+  test('spawn button enables when id and model filled', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
     await page.getByTestId('agent-id-input').fill('test-e2e');
-    await page.getByTestId('agent-model-input').fill('gpt-4o');
-    await expect(page.getByRole('button', { name: 'Spawn' })).toBeEnabled();
+    await page.getByTestId('agent-model-select').selectOption('gpt-4o');
+    await expect(page.getByRole('button', { name: 'Spawn Agent' })).toBeEnabled();
   });
 
-  test('spawn button disabled with only one field', async ({ page }) => {
+  test('spawn button disabled with only id field', async ({ page }) => {
     await page.goto('/admin');
     await page.getByRole('button', { name: 'Agents' }).click();
     await page.getByTestId('agent-id-input').fill('test-e2e');
-    await expect(page.getByRole('button', { name: 'Spawn' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Spawn Agent' })).toBeDisabled();
+  });
+
+  test('spawns agent with full config', async ({ page }) => {
+    const agentId = `e2e-agent-${Date.now()}`;
+    await page.goto('/admin');
+    await page.getByRole('button', { name: 'Agents' }).click();
+    await expect(page.getByTestId('agent-list')).toBeVisible({ timeout: 10_000 });
+    const initialCount = await page.getByTestId('agent-list-item').count();
+
+    // Fill the form
+    await page.getByTestId('agent-id-input').fill(agentId);
+    await page.getByTestId('agent-model-select').selectOption('gpt-4o');
+    await page.getByTestId('agent-system-prompt').fill('E2E test agent');
+
+    // Select a tool
+    const firstCheckbox = page.getByTestId('tool-selector').locator('input[type="checkbox"]').first();
+    await firstCheckbox.check();
+
+    // Spawn
+    await page.getByRole('button', { name: 'Spawn Agent' }).click();
+    await expect(page.getByText('Agent spawned')).toBeVisible({ timeout: 10_000 });
+
+    // Agent list should have one more agent
+    await expect(page.getByTestId('agent-list-item')).toHaveCount(initialCount + 1, { timeout: 10_000 });
+
+    // Expand the new agent to verify config
+    await page.getByTestId(`expand-${agentId}`).click();
+    await expect(page.getByTestId(`details-${agentId}`)).toBeVisible();
+    await expect(page.getByTestId(`details-${agentId}`).getByText('E2E test agent')).toBeVisible();
+
+    // Clean up: kill the test agent
+    await page.getByLabel(`Kill agent ${agentId}`).click();
+    await expect(page.getByTestId('agent-list-item')).toHaveCount(initialCount, { timeout: 15_000 });
   });
 });
 
@@ -297,7 +422,7 @@ test.describe('Chat Persistence', () => {
 
     // Verify server stored the conversation
     const result = await page.evaluate(async () => {
-      const res = await fetch('/api/conversations?agentId=default');
+      const res = await fetch('/api/conversations?agentId=coordinator');
       return res.json();
     });
     expect(result.conversations.length).toBeGreaterThan(0);
@@ -469,7 +594,7 @@ test.describe('Conversation Persistence — Debug & API', () => {
 
     // Query the conversations API directly
     const result = await page.evaluate(async () => {
-      const res = await fetch('/api/conversations?agentId=default');
+      const res = await fetch('/api/conversations?agentId=coordinator');
       return res.json();
     });
     expect(result.conversations.length).toBeGreaterThan(0);
@@ -521,7 +646,7 @@ test.describe('Export with Server Data', () => {
 
     // Verify exported data structure and content
     expect(exported.version).toBe(1);
-    expect(exported.agentId).toBe('default');
+    expect(exported.agentId).toBe('coordinator');
     expect(exported.messages.length).toBe(2);
     expect(exported.messages[0].content).toContain('export-test-data');
   });

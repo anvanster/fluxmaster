@@ -6,8 +6,10 @@ import { AgentList } from './AgentList';
 import { McpServerList } from './McpServerList';
 import { PluginList } from './PluginList';
 import { AuthStatus } from './AuthStatus';
+import { ToolAuditLog } from './ToolAuditLog';
+import { ToolPermissions } from './ToolPermissions';
 
-const tabs = ['Config', 'Agents', 'MCP', 'Plugins', 'Auth'] as const;
+const tabs = ['Config', 'Agents', 'MCP', 'Plugins', 'Auth', 'Security'] as const;
 type Tab = typeof tabs[number];
 
 export function AdminView() {
@@ -42,6 +44,12 @@ export function AdminView() {
         {activeTab === 'MCP' && <McpServerList />}
         {activeTab === 'Plugins' && <PluginList />}
         {activeTab === 'Auth' && <AuthStatus />}
+        {activeTab === 'Security' && (
+          <div className="space-y-6">
+            <ToolPermissions />
+            <ToolAuditLog />
+          </div>
+        )}
       </div>
     </div>
   );

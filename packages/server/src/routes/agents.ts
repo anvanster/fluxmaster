@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { validateBody } from '../middleware/validation.js';
+import { meterUsage } from '../cost-metering.js';
 import type { AgentInfoResponse, MessageResponse, HistoryResponse } from '../shared/api-types.js';
 
 const SpawnAgentSchema = z.object({
@@ -33,6 +34,10 @@ export function agentRoutes(ctx: AppContext): FastifyPluginAsync {
         id: worker.config.id,
         model: worker.config.model,
         status: worker.status,
+        tools: worker.config.tools,
+        systemPrompt: worker.config.systemPrompt,
+        temperature: worker.config.temperature,
+        maxTokens: worker.config.maxTokens,
       };
       return reply.status(201).send(info);
     });
@@ -55,8 +60,29 @@ export function agentRoutes(ctx: AppContext): FastifyPluginAsync {
       if (!validation.success) {
         return reply.status(400).send({ error: validation.error, issues: validation.issues });
       }
+      // Budget check
+      const budgetCheck = ctx.budgetManager.checkBudget(request.params.id);
+      if (!budgetCheck.allowed) {
+        return reply.status(429).send({ error: 'Budget exceeded', reason: budgetCheck.reason });
+      }
       const result = await ctx.agentManager.routeMessage(request.params.id, validation.data.message);
       ctx.usageTracker.record(request.params.id, result.usage.inputTokens, result.usage.outputTokens);
+
+      // Emit cost event for budget tracking
+      const provider = ctx.agentProviders.get(request.params.id) ?? 'copilot';
+      const model = ctx.agentModels.get(request.params.id) ?? '';
+      const metered = meterUsage(provider, model, result.usage.inputTokens, result.usage.outputTokens, ctx.costCalculator);
+      ctx.eventBus.emit({
+        type: 'cost:updated',
+        agentId: request.params.id,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        cost: metered.amount,
+        unit: metered.unit,
+        provider,
+        timestamp: new Date(),
+      });
+
       const response: MessageResponse = {
         text: result.text,
         usage: result.usage,

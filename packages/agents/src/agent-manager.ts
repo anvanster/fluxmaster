@@ -4,7 +4,7 @@ import type { AuthManager } from '@fluxmaster/auth';
 import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
 import { AgentWorker } from './agent-worker.js';
 import { SessionManager } from './session/session-manager.js';
-import type { ToolLoopResult } from './tool-loop.js';
+import type { ToolLoopResult, ToolSecurityCheck } from './tool-loop.js';
 import type { StreamEvent } from './adapters/adapter.interface.js';
 
 const logger = createChildLogger('agent-manager');
@@ -14,12 +14,18 @@ export interface AgentManagerOptions {
   globalMcpServers?: McpServerConfig[];
   eventBus?: EventBus;
   conversationStore?: IConversationStore;
+  onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
+  onAfterToolExecute?: (agentId: string, toolName: string) => void;
 }
 
 export interface AgentInfo {
   id: string;
   model: string;
   status: AgentStatus;
+  tools: string[];
+  systemPrompt?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 export class AgentManager {
@@ -30,6 +36,8 @@ export class AgentManager {
   private mcpServerManager?: McpServerManager;
   private globalMcpServers: McpServerConfig[];
   private eventBus?: EventBus;
+  private onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
+  private onAfterToolExecute?: (agentId: string, toolName: string) => void;
 
   constructor(authManager: AuthManager, toolRegistry: ToolRegistry, options?: AgentManagerOptions) {
     this.authManager = authManager;
@@ -38,6 +46,8 @@ export class AgentManager {
     this.mcpServerManager = options?.mcpServerManager;
     this.globalMcpServers = options?.globalMcpServers ?? [];
     this.eventBus = options?.eventBus;
+    this.onBeforeToolExecute = options?.onBeforeToolExecute;
+    this.onAfterToolExecute = options?.onAfterToolExecute;
   }
 
   async initializeMcp(): Promise<void> {
@@ -72,11 +82,14 @@ export class AgentManager {
     }
 
     const endpoint = await this.authManager.getEndpoint(config.model);
-    const worker = new AgentWorker(config, endpoint, this.toolRegistry, this.sessionManager);
+    const worker = new AgentWorker(config, endpoint, this.toolRegistry, this.sessionManager, {
+      onBeforeToolExecute: this.onBeforeToolExecute,
+      onAfterToolExecute: this.onAfterToolExecute,
+    });
     this.workers.set(config.id, worker);
 
     logger.info({ agentId: config.id, model: config.model }, 'Agent spawned');
-    this.eventBus?.emit({ type: 'agent:spawned', agentId: config.id, model: config.model, timestamp: new Date() });
+    this.eventBus?.emit({ type: 'agent:spawned', agentId: config.id, model: config.model, provider: endpoint.provider, timestamp: new Date() });
     return worker;
   }
 
@@ -120,6 +133,10 @@ export class AgentManager {
       id,
       model: worker.config.model,
       status: worker.status,
+      tools: worker.config.tools,
+      systemPrompt: worker.config.systemPrompt,
+      temperature: worker.config.temperature,
+      maxTokens: worker.config.maxTokens,
     }));
   }
 

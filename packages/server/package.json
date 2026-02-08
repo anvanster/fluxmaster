@@ -22,7 +22,8 @@
     "@fluxmaster/core": "*",
     "@fluxmaster/tools": "*",
     "better-sqlite3": "^12.6.2",
-    "fastify": "^5.0.0"
+    "fastify": "^5.0.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13"

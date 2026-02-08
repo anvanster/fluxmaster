@@ -1,4 +1,7 @@
+import type { Provider } from '@fluxmaster/core';
+import { getCopilotMultiplier } from '@fluxmaster/auth';
 import type { UsageTracker } from './usage-tracker.js';
+import type { AgentCostEntry } from './shared/api-types.js';
 
 export interface ModelPricing {
   inputPer1M: number;
@@ -42,6 +45,12 @@ export class CostCalculator {
     return total;
   }
 
+  calculateCostForTokens(model: string, inputTokens: number, outputTokens: number): number {
+    const price = this.pricing[model];
+    if (!price) return 0;
+    return (inputTokens * price.inputPer1M + outputTokens * price.outputPer1M) / 1_000_000;
+  }
+
   getCostBreakdown(): Record<string, number> {
     const all = this.usageTracker.getAll();
     const breakdown: Record<string, number> = {};
@@ -52,5 +61,40 @@ export class CostCalculator {
       }
     }
     return breakdown;
+  }
+
+  getProviderAwareBreakdown(agentProviders: Map<string, Provider>): Record<string, AgentCostEntry> {
+    const all = this.usageTracker.getAll();
+    const breakdown: Record<string, AgentCostEntry> = {};
+    for (const agentId of Object.keys(all)) {
+      const provider = agentProviders.get(agentId);
+      const model = this.agentModels.get(agentId) ?? '';
+      if (provider === 'copilot') {
+        const usage = this.usageTracker.getAgent(agentId);
+        breakdown[agentId] = {
+          amount: getCopilotMultiplier(model) * usage.requestCount,
+          unit: 'premium_requests',
+        };
+      } else {
+        const cost = this.calculateCost(agentId);
+        if (cost > 0) {
+          breakdown[agentId] = { amount: cost, unit: 'cost' };
+        }
+      }
+    }
+    return breakdown;
+  }
+
+  getTotalPremiumRequests(agentProviders: Map<string, Provider>): number {
+    const all = this.usageTracker.getAll();
+    let total = 0;
+    for (const agentId of Object.keys(all)) {
+      if (agentProviders.get(agentId) === 'copilot') {
+        const model = this.agentModels.get(agentId) ?? '';
+        const usage = this.usageTracker.getAgent(agentId);
+        total += getCopilotMultiplier(model) * usage.requestCount;
+      }
+    }
+    return total;
   }
 }

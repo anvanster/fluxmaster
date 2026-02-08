@@ -24,7 +24,7 @@ describe('WsEventBridge', () => {
     const bridge = new WsEventBridge(bus, cm);
     bridge.start();
 
-    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
 
     expect(cm.broadcast).toHaveBeenCalledOnce();
     const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
@@ -71,7 +71,7 @@ describe('WsEventBridge', () => {
     const bridge = new WsEventBridge(bus, cm);
     bridge.start();
 
-    bus.emit({ type: 'cost:updated', agentId: 'a1', inputTokens: 100, outputTokens: 50, cost: 0.005, timestamp: new Date() });
+    bus.emit({ type: 'cost:updated', agentId: 'a1', inputTokens: 100, outputTokens: 50, cost: 0.005, unit: 'cost', provider: 'anthropic', timestamp: new Date() });
 
     expect(cm.broadcast).toHaveBeenCalledOnce();
     const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
@@ -80,6 +80,52 @@ describe('WsEventBridge', () => {
     expect(msg.cost).toBe(0.005);
     expect(msg.inputTokens).toBe(100);
     expect(msg.outputTokens).toBe(50);
+  });
+
+  it('broadcasts budget:warning events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'budget:warning', budgetId: 'global', threshold: 0.8, currentCost: 80, maxCost: 100, timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('budget_event');
+    expect(msg.event).toBe('warning');
+    expect(msg.budgetId).toBe('global');
+    expect(msg.threshold).toBe(0.8);
+  });
+
+  it('broadcasts budget:exceeded events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'budget:exceeded', budgetId: 'global', currentCost: 101, maxCost: 100, timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('budget_event');
+    expect(msg.event).toBe('exceeded');
+    expect(msg.budgetId).toBe('global');
+  });
+
+  it('broadcasts budget:request_blocked events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'budget:request_blocked', agentId: 'a1', budgetId: 'a1', currentCost: 51, maxCost: 50, timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('budget_event');
+    expect(msg.event).toBe('request_blocked');
+    expect(msg.agentId).toBe('a1');
   });
 
   it('does not broadcast non-allowed events', () => {
@@ -102,7 +148,7 @@ describe('WsEventBridge', () => {
     bridge.start();
     bridge.stop();
 
-    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
 
     expect(cm.broadcast).not.toHaveBeenCalled();
   });
@@ -116,7 +162,7 @@ describe('WsEventBridge', () => {
     bridge.stop();
     bridge.start();
 
-    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+    bus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
 
     expect(cm.broadcast).toHaveBeenCalledOnce();
   });

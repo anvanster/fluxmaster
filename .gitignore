@@ -1,3 +1,5 @@
+.codegraph/
+fluxmaster.db*
 internal/
 node_modules/
 dist/

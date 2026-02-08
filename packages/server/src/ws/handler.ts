@@ -2,6 +2,7 @@ import type { WebSocket } from '@fastify/websocket';
 import type { AppContext } from '../context.js';
 import type { WsClientMessage, WsServerMessage } from '../shared/ws-types.js';
 import { ConnectionManager } from './connection-manager.js';
+import { meterUsage } from '../cost-metering.js';
 
 export class WsHandler {
   private ctx: AppContext;
@@ -54,6 +55,18 @@ export class WsHandler {
     const { agentId, text, requestId } = msg;
     const eventBus = this.ctx.eventBus;
 
+    // Budget check
+    const budgetCheck = this.ctx.budgetManager.checkBudget(agentId);
+    if (!budgetCheck.allowed) {
+      const errorMsg: WsServerMessage = {
+        type: 'error',
+        error: budgetCheck.reason ?? 'Budget exceeded',
+        requestId,
+      };
+      socket.send(JSON.stringify(errorMsg));
+      return;
+    }
+
     eventBus.emit({ type: 'message:started', agentId, requestId, timestamp: new Date() });
 
     try {
@@ -97,6 +110,21 @@ export class WsHandler {
       }
 
       this.ctx.usageTracker.record(agentId, result.usage.inputTokens, result.usage.outputTokens);
+
+      // Emit cost event for budget tracking
+      const provider = this.ctx.agentProviders.get(agentId) ?? 'copilot';
+      const model = this.ctx.agentModels.get(agentId) ?? '';
+      const metered = meterUsage(provider, model, result.usage.inputTokens, result.usage.outputTokens, this.ctx.costCalculator);
+      eventBus.emit({
+        type: 'cost:updated',
+        agentId,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+        cost: metered.amount,
+        unit: metered.unit,
+        provider,
+        timestamp: new Date(),
+      });
 
       const complete: WsServerMessage = {
         type: 'message_complete',

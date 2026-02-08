@@ -43,6 +43,7 @@ describe('AgentManager event bus integration', () => {
     expect(events).toHaveLength(1);
     expect(events[0].agentId).toBe('test');
     expect(events[0].model).toBe('claude-sonnet-4');
+    expect(events[0].provider).toBe('copilot');
     expect(events[0].timestamp).toBeInstanceOf(Date);
   });
 

@@ -36,6 +36,16 @@ function createMockContext(): AppContext {
     databaseManager: { isOpen: true, close: vi.fn() } as any,
     conversationStore: {} as any,
     requestStore: {} as any,
+    toolAuditStore: {} as any,
+    toolSecurityManager: {} as any,
+    budgetStore: {} as any,
+    budgetManager: {
+      checkBudget: vi.fn().mockReturnValue({ allowed: true }),
+      recordUsage: vi.fn(),
+      getStatus: vi.fn().mockReturnValue([]),
+    } as any,
+    agentModels: new Map(),
+    agentProviders: new Map(),
   };
 }
 

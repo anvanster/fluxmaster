@@ -1,1 +1,1 @@
-export { isCopilotModel, inferProvider, getFullModelId, listCopilotModels } from './registry.js';
+export { isCopilotModel, inferProvider, getFullModelId, getCopilotMultiplier, listCopilotModels } from './registry.js';

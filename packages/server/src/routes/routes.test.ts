@@ -66,6 +66,8 @@ function createMockContext(overrides?: Partial<AppContext>): AppContext {
     usageTracker,
     eventBus: new EventBus(),
     costCalculator: new CostCalculator(usageTracker, pricing, agentModels),
+    agentModels,
+    agentProviders: new Map([['default', 'copilot' as const]]),
     databaseManager: { isOpen: true, close: vi.fn() } as any,
     conversationStore: {
       createConversation: vi.fn(),
@@ -82,6 +84,39 @@ function createMockContext(overrides?: Partial<AppContext>): AppContext {
       updateRequest: vi.fn(),
       getRequest: vi.fn(),
       listRequests: vi.fn().mockReturnValue([]),
+    } as any,
+    toolAuditStore: {
+      logToolCall: vi.fn(),
+      getByAgent: vi.fn().mockReturnValue([]),
+      getByTool: vi.fn().mockReturnValue([]),
+      getDeniedCalls: vi.fn().mockReturnValue([]),
+      pruneOldEntries: vi.fn().mockReturnValue(0),
+    } as any,
+    toolSecurityManager: {} as any,
+    budgetStore: {
+      logAlert: vi.fn(),
+      getAlerts: vi.fn().mockReturnValue([]),
+      getAllAlerts: vi.fn().mockReturnValue([]),
+      hasTriggeredThreshold: vi.fn().mockReturnValue(false),
+    } as any,
+    budgetManager: {
+      checkBudget: vi.fn().mockReturnValue({ allowed: true }),
+      recordUsage: vi.fn(),
+      getStatus: vi.fn().mockReturnValue([]),
+    } as any,
+    workflowStore: {
+      saveDefinition: vi.fn(),
+      getDefinition: vi.fn().mockReturnValue(undefined),
+      listDefinitions: vi.fn().mockReturnValue([]),
+      deleteDefinition: vi.fn(),
+      saveRun: vi.fn(),
+      updateRun: vi.fn(),
+      getRun: vi.fn(),
+      listRuns: vi.fn().mockReturnValue([]),
+    } as any,
+    workflowEngine: {
+      startRun: vi.fn(),
+      getRunStatus: vi.fn(),
     } as any,
     ...overrides,
   };
@@ -172,6 +207,26 @@ describe('Agent routes', () => {
   it('DELETE /api/agents/:id/history — clears history', async () => {
     const res = await app.inject({ method: 'DELETE', url: '/api/agents/default/history' });
     expect(res.statusCode).toBe(204);
+  });
+
+  it('POST /api/agents/:id/message — returns 429 when budget exceeded', async () => {
+    ctx = createMockContext({
+      budgetManager: {
+        checkBudget: vi.fn().mockReturnValue({ allowed: false, reason: 'Global budget exceeded: $100.00 / $100.00' }),
+        recordUsage: vi.fn(),
+        getStatus: vi.fn().mockReturnValue([]),
+      } as any,
+    });
+    app = await buildApp(ctx);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/agents/default/message',
+      payload: { message: 'hello' },
+    });
+    expect(res.statusCode).toBe(429);
+    expect(res.json().error).toBe('Budget exceeded');
+    expect(res.json().reason).toContain('Global budget exceeded');
   });
 
   it('POST /api/agents/:id/message — tracks usage', async () => {
@@ -325,14 +380,32 @@ describe('System routes', () => {
     expect(body.byAgent['agent-1']).toBeDefined();
   });
 
-  it('GET /api/system/cost — returns cost breakdown', async () => {
+  it('GET /api/system/cost — returns provider-aware cost breakdown', async () => {
     ctx.usageTracker.record('default', 1_000_000, 500_000);
     const res = await app.inject({ method: 'GET', url: '/api/system/cost' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    // gpt-4o: input 1M * 2.5/1M + output 500K * 10/1M = 2.5 + 5.0 = 7.5
-    expect(body.totalCost).toBeCloseTo(7.5);
-    expect(body.byAgent['default']).toBeCloseTo(7.5);
+    // default agent uses copilot provider with gpt-4o (0x free model)
+    expect(body.totalCost).toBeCloseTo(7.5); // dollar cost still calculated
+    expect(body.totalPremiumRequests).toBe(0); // gpt-4o = 0x multiplier
+    expect(body.byAgent['default']).toEqual({ amount: 0, unit: 'premium_requests' });
+  });
+
+  it('GET /api/system/models — returns available models', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/system/models' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
+    const gpt4o = body.find((m: any) => m.id === 'gpt-4o');
+    expect(gpt4o).toBeDefined();
+    expect(gpt4o.provider).toBe('openai');
+    expect(gpt4o.premiumMultiplier).toBe(0);
+    // Check an Anthropic model
+    const sonnet = body.find((m: any) => m.id === 'claude-sonnet-4');
+    expect(sonnet).toBeDefined();
+    expect(sonnet.provider).toBe('anthropic');
+    expect(sonnet.premiumMultiplier).toBe(1);
   });
 });
 

@@ -14,7 +14,7 @@ describe('PluginList', () => {
     mockUsePlugins.mockReturnValue({
       isLoading: false,
       data: [],
-    } as ReturnType<typeof usePlugins>);
+    } as unknown as ReturnType<typeof usePlugins>);
     render(<PluginList />);
     expect(screen.getByText('No plugins loaded')).toBeInTheDocument();
   });
@@ -23,7 +23,7 @@ describe('PluginList', () => {
     mockUsePlugins.mockReturnValue({
       isLoading: false,
       data: [{ package: '@fluxmaster/plugin-git', config: {} }],
-    } as ReturnType<typeof usePlugins>);
+    } as unknown as ReturnType<typeof usePlugins>);
     render(<PluginList />);
     expect(screen.getByText('@fluxmaster/plugin-git')).toBeInTheDocument();
   });

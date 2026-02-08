@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cn, formatTokens, formatDate, formatCost } from './utils';
+import { cn, formatTokens, formatDate, formatCost, formatAmount } from './utils';
 
 describe('cn', () => {
   it('joins classes', () => {
@@ -41,5 +41,21 @@ describe('formatCost', () => {
   it('shows <$0.01 for tiny amounts', () => {
     expect(formatCost(0.001)).toBe('<$0.01');
     expect(formatCost(0)).toBe('<$0.01');
+  });
+});
+
+describe('formatAmount', () => {
+  it('formats dollar cost via formatCost', () => {
+    expect(formatAmount(7.5, 'cost')).toBe('$7.50');
+    expect(formatAmount(0, 'cost')).toBe('<$0.01');
+  });
+
+  it('formats premium requests', () => {
+    expect(formatAmount(3, 'premium_requests')).toBe('3.0 reqs');
+    expect(formatAmount(0.33, 'premium_requests')).toBe('0.3 reqs');
+  });
+
+  it('shows 0 reqs for zero premium requests', () => {
+    expect(formatAmount(0, 'premium_requests')).toBe('0 reqs');
   });
 });

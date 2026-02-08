@@ -34,6 +34,12 @@ vi.mock('@fluxmaster/agents', () => ({
     initializeMcp: mockInitializeMcp,
     killAll: mockKillAll,
   })),
+  createDelegateTool: vi.fn().mockReturnValue({
+    name: 'delegate_to_agent',
+    description: 'Delegate task to another agent',
+    schema: {},
+    execute: vi.fn(),
+  }),
 }));
 
 const mockStopAll = vi.fn().mockResolvedValue(undefined);

@@ -16,7 +16,7 @@ describe('McpServerList', () => {
     mockUseMcpServers.mockReturnValue({
       isLoading: false,
       data: { configured: [], running: [] },
-    } as ReturnType<typeof useMcpServers>);
+    } as unknown as ReturnType<typeof useMcpServers>);
     render(<McpServerList />);
     expect(screen.getByText('No MCP servers configured')).toBeInTheDocument();
   });
@@ -28,7 +28,7 @@ describe('McpServerList', () => {
         configured: [{ name: 'github', transport: 'stdio', command: 'npx mcp' }],
         running: ['github'],
       },
-    } as ReturnType<typeof useMcpServers>);
+    } as unknown as ReturnType<typeof useMcpServers>);
     render(<McpServerList />);
     expect(screen.getByText('github')).toBeInTheDocument();
   });

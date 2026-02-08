@@ -23,9 +23,9 @@ describe('EventPersister', () => {
   it('subscribes to all event types on start', () => {
     persister.start();
 
-    eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+    eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
     eventBus.emit({ type: 'message:started', agentId: 'a1', requestId: 'r1', timestamp: new Date() });
-    eventBus.emit({ type: 'cost:updated', agentId: 'a1', inputTokens: 10, outputTokens: 20, cost: 0.01, timestamp: new Date() });
+    eventBus.emit({ type: 'cost:updated', agentId: 'a1', inputTokens: 10, outputTokens: 20, cost: 0.01, unit: 'cost', provider: 'anthropic', timestamp: new Date() });
 
     expect(savedEvents).toHaveLength(3);
   });
@@ -58,7 +58,7 @@ describe('EventPersister', () => {
     persister.start();
     persister.stop();
 
-    eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+    eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
     expect(savedEvents).toHaveLength(0);
   });
 
@@ -75,7 +75,7 @@ describe('EventPersister', () => {
 
     // Should not throw
     expect(() => {
-      eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', timestamp: new Date() });
+      eventBus.emit({ type: 'agent:spawned', agentId: 'a1', model: 'gpt-4o', provider: 'copilot', timestamp: new Date() });
     }).not.toThrow();
   });
 });

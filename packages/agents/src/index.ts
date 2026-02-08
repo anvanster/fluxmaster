@@ -2,7 +2,7 @@ export { AgentManager } from './agent-manager.js';
 export type { AgentInfo, AgentManagerOptions } from './agent-manager.js';
 export { AgentWorker } from './agent-worker.js';
 export { runToolLoop } from './tool-loop.js';
-export type { ToolLoopOptions, ToolLoopResult } from './tool-loop.js';
+export type { ToolLoopOptions, ToolLoopResult, ToolSecurityCheck } from './tool-loop.js';
 export { runToolLoopStream } from './tool-loop-stream.js';
 export type { StreamToolLoopOptions } from './tool-loop-stream.js';
 export { SessionManager } from './session/index.js';

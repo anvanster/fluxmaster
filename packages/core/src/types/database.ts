@@ -96,3 +96,29 @@ export interface IRequestStore {
   getRequest(requestId: string): RequestRecord | undefined;
   listRequests(agentId: string, options?: { limit?: number; offset?: number }): RequestRecord[];
 }
+
+export interface IBudgetStore {
+  logAlert(alert: import('./budget.js').BudgetAlert): void;
+  getAlerts(budgetId: string, options?: { limit?: number }): import('./budget.js').BudgetAlert[];
+  getAllAlerts(options?: { limit?: number }): import('./budget.js').BudgetAlert[];
+  hasTriggeredThreshold(budgetId: string, threshold: number, since: Date): boolean;
+}
+
+export interface IWorkflowStore {
+  saveDefinition(workflow: import('./workflow.js').WorkflowDefinition): void;
+  getDefinition(id: string): import('./workflow.js').WorkflowDefinition | undefined;
+  listDefinitions(): import('./workflow.js').WorkflowDefinition[];
+  deleteDefinition(id: string): void;
+  saveRun(run: import('./workflow.js').WorkflowRun): void;
+  updateRun(runId: string, updates: Partial<import('./workflow.js').WorkflowRun>): void;
+  getRun(runId: string): import('./workflow.js').WorkflowRun | undefined;
+  listRuns(workflowId: string, options?: { limit?: number }): import('./workflow.js').WorkflowRun[];
+}
+
+export interface IToolAuditStore {
+  logToolCall(entry: import('./tool-security.js').ToolAuditEntry): void;
+  getByAgent(agentId: string, options?: { limit?: number; offset?: number }): import('./tool-security.js').ToolAuditEntry[];
+  getByTool(toolName: string, options?: { limit?: number }): import('./tool-security.js').ToolAuditEntry[];
+  getDeniedCalls(options?: { limit?: number }): import('./tool-security.js').ToolAuditEntry[];
+  pruneOldEntries(maxAgeSeconds: number): number;
+}

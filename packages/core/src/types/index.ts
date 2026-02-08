@@ -31,7 +31,24 @@ export type {
 } from './agent.js';
 
 export type { FluxmasterConfig, McpServerConfig, BrowserConfig } from './config.js';
-export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema } from './config.js';
+export { FluxmasterConfigSchema, AgentConfigSchema, McpServerConfigSchema, BrowserConfigSchema, DatabaseConfigSchema, AiFeatureConfigSchema, ToolSecurityPolicySchema, BudgetConfigSchema } from './config.js';
+
+export type {
+  ToolPermissionLevel,
+  ToolSecurityPolicy,
+  AgentToolPermissions,
+  FilesystemPolicy,
+  NetworkPolicy,
+  ToolAuditEntry,
+} from './tool-security.js';
+export {
+  ToolPermissionLevelSchema,
+  ToolSecurityPolicySchema as ToolSecurityPolicyZodSchema,
+  AgentToolPermissionsSchema,
+  FilesystemPolicySchema,
+  NetworkPolicySchema,
+  DEFAULT_TOOL_LEVELS,
+} from './tool-security.js';
 
 export type { FluxmasterPlugin, PluginConfig } from './plugin.js';
 
@@ -47,6 +64,9 @@ export type {
   IEventStore,
   IUsageStore,
   IRequestStore,
+  IToolAuditStore,
+  IBudgetStore,
+  IWorkflowStore,
 } from './database.js';
 
 export type {
@@ -54,3 +74,34 @@ export type {
   ConversationTitle,
   SuggestedFollowUp,
 } from './ai-features.js';
+
+export type {
+  BudgetPeriod,
+  BudgetUnit,
+  BudgetLimit,
+  BudgetConfig,
+  BudgetStatus,
+  BudgetAlert,
+} from './budget.js';
+export {
+  BudgetPeriodSchema,
+  BudgetUnitSchema,
+  BudgetLimitSchema,
+} from './budget.js';
+
+export type {
+  WorkflowStatus,
+  StepStatus,
+  WorkflowStep,
+  WorkflowInput,
+  WorkflowDefinition,
+  StepResult,
+  WorkflowRun,
+} from './workflow.js';
+export {
+  WorkflowStatusSchema,
+  StepStatusSchema,
+  WorkflowStepSchema,
+  WorkflowInputSchema,
+  WorkflowDefinitionSchema,
+} from './workflow.js';

@@ -1,0 +1,1 @@
+ALTER TABLE budget_alerts ADD COLUMN unit TEXT NOT NULL DEFAULT 'cost';

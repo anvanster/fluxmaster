@@ -13,7 +13,7 @@ describe('EventBus', () => {
   it('emit with no listeners does not throw', () => {
     const bus = new EventBus();
     expect(() => {
-      bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+      bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
     }).not.toThrow();
   });
 
@@ -22,7 +22,7 @@ describe('EventBus', () => {
     const handler = vi.fn();
     bus.on('agent:spawned', handler);
 
-    const event = makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' });
+    const event = makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' });
     bus.emit(event);
 
     expect(handler).toHaveBeenCalledOnce();
@@ -45,7 +45,7 @@ describe('EventBus', () => {
     const unsub = bus.on('agent:spawned', handler);
 
     unsub();
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
 
     expect(handler).not.toHaveBeenCalled();
   });
@@ -70,7 +70,7 @@ describe('EventBus', () => {
     bus.on('agent:spawned', h2);
     bus.on('agent:spawned', h3);
 
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
 
     expect(h1).toHaveBeenCalledOnce();
     expect(h2).toHaveBeenCalledOnce();
@@ -86,7 +86,7 @@ describe('EventBus', () => {
 
     bus.removeAllListeners('agent:spawned');
 
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
     bus.emit(makeEvent('agent:killed', { agentId: 'a1' }));
 
     expect(spawnHandler).not.toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe('EventBus', () => {
 
     bus.removeAllListeners();
 
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
     bus.emit(makeEvent('agent:killed', { agentId: 'a1' }));
 
     expect(h1).not.toHaveBeenCalled();
@@ -129,7 +129,7 @@ describe('EventBus', () => {
     bus.on('agent:spawned', h1);
     bus.on('agent:spawned', h2);
 
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
 
     expect(h1).toHaveBeenCalledOnce();
     expect(h2).toHaveBeenCalledOnce();
@@ -170,7 +170,7 @@ describe('EventBus', () => {
     expect(() => {
       for (let i = 0; i < 5; i++) {
         handlers[i]();
-        bus.emit(makeEvent('agent:spawned', { agentId: `a${i}`, model: 'gpt-4o' }));
+        bus.emit(makeEvent('agent:spawned', { agentId: `a${i}`, model: 'gpt-4o', provider: 'openai' }));
       }
     }).not.toThrow();
   });
@@ -184,6 +184,10 @@ describe('EventBus', () => {
       'tool:call_started', 'tool:call_completed',
       'mcp:server_started', 'mcp:server_stopped',
       'cost:updated',
+      'security:tool_denied', 'security:rate_limited', 'security:audit_logged',
+      'budget:warning', 'budget:exceeded', 'budget:request_blocked',
+      'workflow:started', 'workflow:step_started', 'workflow:step_completed',
+      'workflow:step_failed', 'workflow:completed', 'workflow:failed',
     ];
 
     for (const type of types) {
@@ -192,8 +196,8 @@ describe('EventBus', () => {
       bus.on(type, h);
     }
 
-    expect(types).toHaveLength(12);
-    expect(handlers).toHaveLength(12);
+    expect(types).toHaveLength(24);
+    expect(handlers).toHaveLength(24);
   });
 
   it('unsubscribe is idempotent', () => {
@@ -204,7 +208,146 @@ describe('EventBus', () => {
     unsub();
     unsub(); // second call should not throw
 
-    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o' }));
+    bus.emit(makeEvent('agent:spawned', { agentId: 'a1', model: 'gpt-4o', provider: 'openai' }));
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  describe('security events', () => {
+    it('emits security:tool_denied with reason', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('security:tool_denied', handler);
+
+      const event = makeEvent('security:tool_denied', {
+        agentId: 'a1',
+        toolName: 'bash_execute',
+        reason: 'Tool classified as dangerous',
+      });
+      bus.emit(event);
+
+      expect(handler).toHaveBeenCalledOnce();
+      const received = handler.mock.calls[0][0] as EventOfType<'security:tool_denied'>;
+      expect(received.agentId).toBe('a1');
+      expect(received.toolName).toBe('bash_execute');
+      expect(received.reason).toBe('Tool classified as dangerous');
+    });
+
+    it('emits security:rate_limited with limit info', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('security:rate_limited', handler);
+
+      const event = makeEvent('security:rate_limited', {
+        agentId: 'a1',
+        toolName: 'write_file',
+        callsPerMinute: 65,
+        limit: 60,
+      });
+      bus.emit(event);
+
+      expect(handler).toHaveBeenCalledOnce();
+      const received = handler.mock.calls[0][0] as EventOfType<'security:rate_limited'>;
+      expect(received.callsPerMinute).toBe(65);
+      expect(received.limit).toBe(60);
+    });
+
+    it('emits budget:warning with threshold info', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('budget:warning', handler);
+
+      const event = makeEvent('budget:warning', {
+        budgetId: 'global',
+        threshold: 0.8,
+        currentCost: 80,
+        maxCost: 100,
+      });
+      bus.emit(event);
+
+      expect(handler).toHaveBeenCalledOnce();
+      const received = handler.mock.calls[0][0] as EventOfType<'budget:warning'>;
+      expect(received.threshold).toBe(0.8);
+    });
+
+    it('emits budget:exceeded when budget is blown', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('budget:exceeded', handler);
+
+      bus.emit(makeEvent('budget:exceeded', {
+        budgetId: 'agent-1',
+        currentCost: 105,
+        maxCost: 100,
+      }));
+
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
+    it('emits budget:request_blocked when request denied', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('budget:request_blocked', handler);
+
+      bus.emit(makeEvent('budget:request_blocked', {
+        agentId: 'agent-1',
+        budgetId: 'global',
+        currentCost: 110,
+        maxCost: 100,
+      }));
+
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler.mock.calls[0][0].agentId).toBe('agent-1');
+    });
+
+    it('emits security:audit_logged with execution details', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('security:audit_logged', handler);
+
+      const event = makeEvent('security:audit_logged', {
+        agentId: 'a1',
+        toolName: 'read_file',
+        permitted: true,
+        durationMs: 42,
+      });
+      bus.emit(event);
+
+      expect(handler).toHaveBeenCalledOnce();
+      const received = handler.mock.calls[0][0] as EventOfType<'security:audit_logged'>;
+      expect(received.permitted).toBe(true);
+      expect(received.durationMs).toBe(42);
+    });
+  });
+
+  describe('workflow events', () => {
+    it('emits workflow:started', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('workflow:started', handler);
+
+      bus.emit(makeEvent('workflow:started', { workflowId: 'wf-1', runId: 'run-1' }));
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler.mock.calls[0][0].workflowId).toBe('wf-1');
+    });
+
+    it('emits workflow:step_completed with output', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('workflow:step_completed', handler);
+
+      bus.emit(makeEvent('workflow:step_completed', { workflowId: 'wf-1', runId: 'run-1', stepId: 's1', output: 'result' }));
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler.mock.calls[0][0].output).toBe('result');
+    });
+
+    it('emits workflow:failed with error', () => {
+      const bus = new EventBus();
+      const handler = vi.fn();
+      bus.on('workflow:failed', handler);
+
+      bus.emit(makeEvent('workflow:failed', { workflowId: 'wf-1', runId: 'run-1', error: 'Step failed' }));
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler.mock.calls[0][0].error).toBe('Step failed');
+    });
   });
 });

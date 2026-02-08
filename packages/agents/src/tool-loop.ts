@@ -6,6 +6,11 @@ import type { IModelAdapter, AdapterMessage, ModelResponse } from './adapters/ad
 
 const logger = createChildLogger('tool-loop');
 
+export interface ToolSecurityCheck {
+  allowed: boolean;
+  reason?: string;
+}
+
 export interface ToolLoopOptions {
   adapter: IModelAdapter;
   model: string;
@@ -16,6 +21,8 @@ export interface ToolLoopOptions {
   temperature: number;
   maxIterations?: number;
   retryOptions?: Partial<RetryOptions>;
+  onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
+  agentId?: string;
 }
 
 export interface ToolLoopResult {
@@ -74,6 +81,21 @@ export async function runToolLoop(
       const resultBlocks: ContentBlock[] = [];
 
       for (const toolUse of toolUseBlocks) {
+        // Security check before execution
+        if (options.onBeforeToolExecute && options.agentId) {
+          const check = options.onBeforeToolExecute(options.agentId, toolUse.name, toolUse.input as Record<string, unknown>);
+          if (!check.allowed) {
+            logger.warn({ tool: toolUse.name, reason: check.reason }, 'Tool execution denied by security policy');
+            resultBlocks.push({
+              type: 'tool_result',
+              toolUseId: toolUse.id,
+              content: `Security: Tool '${toolUse.name}' denied — ${check.reason}`,
+              isError: true,
+            });
+            continue;
+          }
+        }
+
         logger.debug({ tool: toolUse.name, id: toolUse.id }, 'Executing tool');
 
         try {

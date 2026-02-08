@@ -18,6 +18,14 @@ export function formatCost(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+export function formatAmount(amount: number, unit: string): string {
+  if (unit === 'premium_requests') {
+    if (amount === 0) return '0 reqs';
+    return `${amount.toFixed(1)} reqs`;
+  }
+  return formatCost(amount);
+}
+
 export function formatDuration(ms: number | null | undefined): string {
   if (ms == null) return '-';
   if (ms < 1000) return `${Math.round(ms)}ms`;

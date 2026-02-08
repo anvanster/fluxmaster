@@ -92,11 +92,14 @@ export const useChatStore = create<ChatState>((set) => ({
       const streaming = new Map(state.streaming);
       const current = streaming.get(requestId);
       if (current) {
-        const toolCalls = current.toolCalls.map((tc) =>
-          tc.name === toolName && tc.status === 'pending'
-            ? { ...tc, status: (isError ? 'error' : 'done') as 'error' | 'done', result, isError }
-            : tc,
-        );
+        let matched = false;
+        const toolCalls = current.toolCalls.map((tc) => {
+          if (!matched && tc.name === toolName && tc.status === 'pending') {
+            matched = true;
+            return { ...tc, status: (isError ? 'error' : 'done') as 'error' | 'done', result, isError };
+          }
+          return tc;
+        });
         streaming.set(requestId, { ...current, toolCalls });
       }
       return { streaming };

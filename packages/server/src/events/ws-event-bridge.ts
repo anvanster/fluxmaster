@@ -27,7 +27,16 @@ export class WsEventBridge {
         this.broadcast({ type: 'agent_event', event: 'message_completed' as 'spawned', agentId: event.agentId, data: { requestId: event.requestId, usage: event.usage } });
       }),
       this.eventBus.on('cost:updated', (event) => {
-        this.broadcast({ type: 'cost_update', agentId: event.agentId, cost: event.cost, inputTokens: event.inputTokens, outputTokens: event.outputTokens });
+        this.broadcast({ type: 'cost_update', agentId: event.agentId, cost: event.cost, unit: event.unit, inputTokens: event.inputTokens, outputTokens: event.outputTokens });
+      }),
+      this.eventBus.on('budget:warning', (event) => {
+        this.broadcast({ type: 'budget_event', event: 'warning', budgetId: event.budgetId, currentCost: event.currentCost, maxCost: event.maxCost, threshold: event.threshold });
+      }),
+      this.eventBus.on('budget:exceeded', (event) => {
+        this.broadcast({ type: 'budget_event', event: 'exceeded', budgetId: event.budgetId, currentCost: event.currentCost, maxCost: event.maxCost });
+      }),
+      this.eventBus.on('budget:request_blocked', (event) => {
+        this.broadcast({ type: 'budget_event', event: 'request_blocked', budgetId: event.budgetId, currentCost: event.currentCost, maxCost: event.maxCost, agentId: event.agentId });
       }),
     );
   }

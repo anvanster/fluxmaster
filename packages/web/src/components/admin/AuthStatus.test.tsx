@@ -11,7 +11,7 @@ const mockUseAuthStatus = vi.mocked(useAuthStatus);
 
 describe('AuthStatus', () => {
   it('shows spinner while loading', () => {
-    mockUseAuthStatus.mockReturnValue({ isLoading: true, data: undefined } as ReturnType<typeof useAuthStatus>);
+    mockUseAuthStatus.mockReturnValue({ isLoading: true, data: undefined } as unknown as ReturnType<typeof useAuthStatus>);
     render(<AuthStatus />);
     expect(screen.getByTestId('spinner')).toBeInTheDocument();
   });
@@ -25,7 +25,7 @@ describe('AuthStatus', () => {
         claudeCli: true,
         directProviders: ['anthropic'],
       },
-    } as ReturnType<typeof useAuthStatus>);
+    } as unknown as ReturnType<typeof useAuthStatus>);
     render(<AuthStatus />);
     expect(screen.getByText('Copilot Configured')).toBeInTheDocument();
     expect(screen.getByText('Claude CLI')).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('AuthStatus', () => {
         claudeCli: false,
         directProviders: [],
       },
-    } as ReturnType<typeof useAuthStatus>);
+    } as unknown as ReturnType<typeof useAuthStatus>);
     render(<AuthStatus />);
     expect(screen.getByText('None')).toBeInTheDocument();
   });

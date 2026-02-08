@@ -101,6 +101,21 @@ export async function runToolLoopStream(
       const resultBlocks: ContentBlock[] = [];
 
       for (const toolUse of toolUseBlocks) {
+        // Security check before execution
+        if (options.onBeforeToolExecute && options.agentId) {
+          const check = options.onBeforeToolExecute(options.agentId, toolUse.name, toolUse.input as Record<string, unknown>);
+          if (!check.allowed) {
+            logger.warn({ tool: toolUse.name, reason: check.reason }, 'Tool execution denied by security policy');
+            resultBlocks.push({
+              type: 'tool_result',
+              toolUseId: toolUse.id,
+              content: `Security: Tool '${toolUse.name}' denied — ${check.reason}`,
+              isError: true,
+            });
+            continue;
+          }
+        }
+
         logger.debug({ tool: toolUse.name, id: toolUse.id }, 'Executing tool');
 
         try {

@@ -16,5 +16,6 @@ export type WsServerMessage =
   | { type: 'error'; error: string; requestId?: string }
   | { type: 'pong' }
   | { type: 'agent_event'; event: 'spawned' | 'killed' | 'status_changed' | 'message_completed'; agentId: string; data?: Record<string, unknown> }
-  | { type: 'cost_update'; agentId: string; cost: number; inputTokens: number; outputTokens: number }
-  | { type: 'ai_feature'; feature: 'title' | 'suggestions' | 'summary'; conversationId: string; requestId?: string; data: unknown };
+  | { type: 'cost_update'; agentId: string; cost: number; unit: string; inputTokens: number; outputTokens: number }
+  | { type: 'ai_feature'; feature: 'title' | 'suggestions' | 'summary'; conversationId: string; requestId?: string; data: unknown }
+  | { type: 'budget_event'; event: 'warning' | 'exceeded' | 'request_blocked'; budgetId: string; currentCost: number; maxCost: number; threshold?: number; agentId?: string };

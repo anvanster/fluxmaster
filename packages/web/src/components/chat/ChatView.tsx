@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useChatStore } from '@/stores/chat-store';
 import { useDebugStore } from '@/stores/debug-store';
 import { useAgents } from '@/api/hooks/useAgents';
@@ -17,6 +18,13 @@ export function ChatView() {
   const toggleDebugPanel = useDebugStore((s) => s.toggleDebugPanel);
   const { data: agents = [] } = useAgents();
   const { sendMessage } = useChat();
+
+  // Auto-select first agent if current one doesn't exist
+  useEffect(() => {
+    if (agents.length > 0 && !agents.some((a) => a.id === activeAgentId)) {
+      setActiveAgent(agents[0].id);
+    }
+  }, [agents, activeAgentId, setActiveAgent]);
 
   const messages = conversations.get(activeAgentId) ?? [];
   const isStreaming = Array.from(streaming.values()).some((s) => s.isStreaming);
