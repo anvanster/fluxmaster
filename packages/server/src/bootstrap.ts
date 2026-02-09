@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { loadConfig, EventBus, type FluxmasterConfig, type Provider } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
-import { AgentManager, createDelegateTool, ScratchpadManager, createScratchpadTools, TaskBoard, createTaskBoardTools, createFanOutTool } from '@fluxmaster/agents';
+import { AgentManager, createDelegateTool, ScratchpadManager, createScratchpadTools, TaskBoard, createTaskBoardTools, createFanOutTool, createMemoryTools } from '@fluxmaster/agents';
 import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools, PluginLoader } from '@fluxmaster/tools';
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
@@ -19,6 +19,7 @@ import { RequestTracker } from './events/request-tracker.js';
 import { ToolSecurityManager } from './security/tool-security-manager.js';
 import { BudgetManager } from './budget/budget-manager.js';
 import { SqliteWorkflowStore } from './db/stores/workflow-store.js';
+import { SqliteAgentMemoryStore } from './db/stores/agent-memory-store.js';
 import { WorkflowEngine } from './workflows/workflow-engine.js';
 
 export interface BootstrapOptions {
@@ -44,6 +45,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
   const toolAuditStore = new SqliteToolAuditStore(db);
   const budgetStore = new SqliteBudgetStore(db);
   const workflowStore = new SqliteWorkflowStore(db);
+  const agentMemoryStore = new SqliteAgentMemoryStore(db);
 
   const authManager = new AuthManager({
     copilot: config.auth.copilot,
@@ -81,6 +83,7 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     globalMcpServers: config.mcpServers.global,
     eventBus,
     conversationStore,
+    memoryStore: agentMemoryStore,
     onBeforeToolExecute: (agentId, toolName, args) =>
       toolSecurityManager.canExecute(agentId, toolName, args),
     onAfterToolExecute: (agentId, toolName) =>
@@ -114,6 +117,12 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
   // Auto-spawn agents from config
   for (const agentConfig of config.agents.list) {
     try {
+      // Resolve personaRef → persona
+      let persona = agentConfig.persona;
+      if (!persona && agentConfig.personaRef && config.personas) {
+        persona = config.personas[agentConfig.personaRef];
+      }
+
       await agentManager.spawnAgent({
         id: agentConfig.id,
         model: agentConfig.model,
@@ -121,7 +130,15 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
         tools: agentConfig.tools ?? [],
         maxTokens: agentConfig.maxTokens ?? config.agents.defaults.maxTokens,
         temperature: agentConfig.temperature ?? config.agents.defaults.temperature,
+        persona,
       });
+
+      // Register memory tools for agents with memoryProtocol
+      if (persona?.memoryProtocol) {
+        for (const tool of createMemoryTools(agentMemoryStore, agentConfig.id)) {
+          toolRegistry.register(tool);
+        }
+      }
     } catch {
       // Agent spawn failures are non-fatal
     }

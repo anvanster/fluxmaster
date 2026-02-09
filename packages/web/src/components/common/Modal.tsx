@@ -4,10 +4,11 @@ interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  maxWidth?: string;
   children: ReactNode;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, maxWidth, children }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -29,7 +30,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       aria-label={title}
     >
       <div
-        className="mx-4 max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-xl"
+        className={`mx-4 max-h-[85vh] w-full ${maxWidth ?? 'max-w-lg'} overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && <h2 className="mb-4 text-lg font-semibold text-white">{title}</h2>}

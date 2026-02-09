@@ -33,7 +33,11 @@ export type FluxmasterEvent =
   | { type: 'orchestration:fanout_completed'; sourceAgentId: string; targetAgentIds: string[]; requestId: string; results: Array<{ agentId: string; success: boolean }>; durationMs: number; timestamp: Date }
   | { type: 'orchestration:scratchpad_updated'; agentId: string; key: string; action: 'write' | 'delete'; timestamp: Date }
   | { type: 'orchestration:task_created'; agentId: string; taskId: string; title: string; assignee?: string; timestamp: Date }
-  | { type: 'orchestration:task_status_changed'; agentId: string; taskId: string; status: string; timestamp: Date };
+  | { type: 'orchestration:task_status_changed'; agentId: string; taskId: string; status: string; timestamp: Date }
+  | { type: 'goal:started'; agentId: string; goalId: string; goal: string; steps: string[]; timestamp: Date }
+  | { type: 'goal:step_completed'; agentId: string; goalId: string; step: number; totalSteps: number; timestamp: Date }
+  | { type: 'goal:completed'; agentId: string; goalId: string; iterations: number; timestamp: Date }
+  | { type: 'goal:blocked'; agentId: string; goalId: string; reason: string; timestamp: Date };
 
 export type FluxmasterEventType = FluxmasterEvent['type'];
 

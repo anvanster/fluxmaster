@@ -12,10 +12,39 @@ export interface SpawnAgentRequest {
   tools?: string[];
   maxTokens?: number;
   temperature?: number;
+  persona?: PersonaInfoResponse;
 }
 
 export interface SendMessageRequest {
   message: string;
+}
+
+export interface PersonaInfoResponse {
+  identity: { name: string; role: string; emoji?: string };
+  soul: {
+    coreTraits: string[];
+    decisionFramework: string;
+    priorities: string[];
+    communicationStyle?: string;
+    guidelines?: string[];
+  };
+  toolPreferences?: {
+    preferred?: string[];
+    avoided?: string[];
+    usageHints?: Record<string, string>;
+  };
+  memoryProtocol?: {
+    shouldRemember: string[];
+    recallTriggers: string[];
+    maxRecallEntries: number;
+  };
+  autonomy?: {
+    canSelfAssign: boolean;
+    maxGoalIterations: number;
+    reflectionEnabled: boolean;
+    autoDecompose: boolean;
+    confidenceThreshold: number;
+  };
 }
 
 export interface AgentInfoResponse {
@@ -26,6 +55,7 @@ export interface AgentInfoResponse {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  persona?: PersonaInfoResponse;
 }
 
 export interface ModelInfo {

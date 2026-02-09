@@ -1,3 +1,5 @@
+import type { Persona } from './persona.js';
+
 export interface AgentConfig {
   id: string;
   model: string;
@@ -13,6 +15,8 @@ export interface AgentConfig {
     url?: string;
     env?: Record<string, string>;
   }>;
+  persona?: Persona;
+  personaRef?: string;
 }
 
 export type MessageRole = 'user' | 'assistant' | 'tool';

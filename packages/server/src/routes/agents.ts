@@ -5,6 +5,34 @@ import { validateBody } from '../middleware/validation.js';
 import { meterUsage } from '../cost-metering.js';
 import type { AgentInfoResponse, MessageResponse, HistoryResponse } from '../shared/api-types.js';
 
+const PersonaSchema = z.object({
+  identity: z.object({ name: z.string(), role: z.string(), emoji: z.string().optional() }),
+  soul: z.object({
+    coreTraits: z.array(z.string()),
+    decisionFramework: z.string(),
+    priorities: z.array(z.string()),
+    communicationStyle: z.string().optional(),
+    guidelines: z.array(z.string()).optional(),
+  }),
+  toolPreferences: z.object({
+    preferred: z.array(z.string()).optional(),
+    avoided: z.array(z.string()).optional(),
+    usageHints: z.record(z.string()).optional(),
+  }).optional(),
+  memoryProtocol: z.object({
+    shouldRemember: z.array(z.string()),
+    recallTriggers: z.array(z.string()),
+    maxRecallEntries: z.number(),
+  }).optional(),
+  autonomy: z.object({
+    canSelfAssign: z.boolean(),
+    maxGoalIterations: z.number(),
+    reflectionEnabled: z.boolean(),
+    autoDecompose: z.boolean(),
+    confidenceThreshold: z.number(),
+  }).optional(),
+});
+
 const SpawnAgentSchema = z.object({
   id: z.string().min(1),
   model: z.string().min(1),
@@ -12,6 +40,7 @@ const SpawnAgentSchema = z.object({
   tools: z.array(z.string()).default([]),
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(2).optional(),
+  persona: PersonaSchema.optional(),
 });
 
 const SendMessageSchema = z.object({
@@ -29,6 +58,7 @@ export function agentRoutes(ctx: AppContext): FastifyPluginAsync {
       const worker = await ctx.agentManager.spawnAgent({
         ...validation.data,
         tools: validation.data.tools ?? [],
+        persona: validation.data.persona,
       });
       const info: AgentInfoResponse = {
         id: worker.config.id,
@@ -38,6 +68,7 @@ export function agentRoutes(ctx: AppContext): FastifyPluginAsync {
         systemPrompt: worker.config.systemPrompt,
         temperature: worker.config.temperature,
         maxTokens: worker.config.maxTokens,
+        persona: worker.config.persona,
       };
       return reply.status(201).send(info);
     });

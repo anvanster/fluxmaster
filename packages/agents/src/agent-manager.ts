@@ -1,10 +1,11 @@
-import type { AgentConfig, AgentStatus, McpServerConfig, EventBus, IConversationStore } from '@fluxmaster/core';
+import type { AgentConfig, AgentStatus, McpServerConfig, EventBus, IConversationStore, IAgentMemoryStore, Persona } from '@fluxmaster/core';
 import { AgentNotFoundError, createChildLogger } from '@fluxmaster/core';
 import type { AuthManager } from '@fluxmaster/auth';
 import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
 import { AgentWorker } from './agent-worker.js';
 import { SessionManager } from './session/session-manager.js';
 import type { ToolLoopResult, ToolSecurityCheck } from './tool-loop.js';
+import type { GoalLoopResult } from './goal-loop.js';
 import type { StreamEvent } from './adapters/adapter.interface.js';
 
 const logger = createChildLogger('agent-manager');
@@ -14,6 +15,7 @@ export interface AgentManagerOptions {
   globalMcpServers?: McpServerConfig[];
   eventBus?: EventBus;
   conversationStore?: IConversationStore;
+  memoryStore?: IAgentMemoryStore;
   onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
   onAfterToolExecute?: (agentId: string, toolName: string) => void;
 }
@@ -26,6 +28,7 @@ export interface AgentInfo {
   systemPrompt?: string;
   temperature?: number;
   maxTokens?: number;
+  persona?: Persona;
 }
 
 export class AgentManager {
@@ -36,6 +39,7 @@ export class AgentManager {
   private mcpServerManager?: McpServerManager;
   private globalMcpServers: McpServerConfig[];
   private eventBus?: EventBus;
+  private memoryStore?: IAgentMemoryStore;
   private onBeforeToolExecute?: (agentId: string, toolName: string, args: Record<string, unknown>) => ToolSecurityCheck;
   private onAfterToolExecute?: (agentId: string, toolName: string) => void;
 
@@ -46,6 +50,7 @@ export class AgentManager {
     this.mcpServerManager = options?.mcpServerManager;
     this.globalMcpServers = options?.globalMcpServers ?? [];
     this.eventBus = options?.eventBus;
+    this.memoryStore = options?.memoryStore;
     this.onBeforeToolExecute = options?.onBeforeToolExecute;
     this.onAfterToolExecute = options?.onAfterToolExecute;
   }
@@ -85,6 +90,8 @@ export class AgentManager {
     const worker = new AgentWorker(config, endpoint, this.toolRegistry, this.sessionManager, {
       onBeforeToolExecute: this.onBeforeToolExecute,
       onAfterToolExecute: this.onAfterToolExecute,
+      memoryStore: this.memoryStore,
+      eventBus: this.eventBus,
     });
     this.workers.set(config.id, worker);
 
@@ -113,6 +120,17 @@ export class AgentManager {
     return worker.processStream(message, onStreamEvent);
   }
 
+  async routeGoal(agentId: string, goal: string): Promise<GoalLoopResult> {
+    const worker = this.workers.get(agentId);
+    if (!worker) {
+      throw new AgentNotFoundError(agentId);
+    }
+    if (!worker.config.persona?.autonomy) {
+      throw new Error(`Agent ${agentId} does not have autonomy enabled`);
+    }
+    return worker.processGoal(goal);
+  }
+
   killAgent(agentId: string): void {
     const worker = this.workers.get(agentId);
     if (!worker) {
@@ -137,6 +155,7 @@ export class AgentManager {
       systemPrompt: worker.config.systemPrompt,
       temperature: worker.config.temperature,
       maxTokens: worker.config.maxTokens,
+      persona: worker.config.persona,
     }));
   }
 

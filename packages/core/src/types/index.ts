@@ -105,3 +105,27 @@ export {
   WorkflowInputSchema,
   WorkflowDefinitionSchema,
 } from './workflow.js';
+
+export type {
+  AgentDecision,
+  AgentLearning,
+  AgentGoalRecord,
+  IAgentMemoryStore,
+} from './agent-memory.js';
+
+export type {
+  Persona,
+  PersonaIdentity,
+  PersonaSoul,
+  PersonaToolPreferences,
+  PersonaMemoryProtocol,
+  PersonaAutonomy,
+} from './persona.js';
+export {
+  PersonaSchema,
+  PersonaIdentitySchema,
+  PersonaSoulSchema,
+  PersonaToolPreferencesSchema,
+  PersonaMemoryProtocolSchema,
+  PersonaAutonomySchema,
+} from './persona.js';

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useAgents, useKillAgent } from '@/api/hooks/useAgents';
 import { Card } from '@/components/common/Card';
-import { Button } from '@/components/common/Button';
+import { Badge } from '@/components/common/Badge';
 import { StatusDot } from '@/components/common/StatusDot';
 import { Spinner } from '@/components/common/Spinner';
-import { Trash2, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { AgentDetailDrawer } from './AgentDetailDrawer';
+import { Wrench, Brain, Zap } from 'lucide-react';
 import type { AgentInfoResponse } from '@fluxmaster/api-types';
 
 function providerFromModel(model: string): string {
@@ -15,100 +16,98 @@ function providerFromModel(model: string): string {
   return 'Unknown';
 }
 
-function AgentCard({ agent, onKill, killPending }: {
+const statusVariant: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
+  idle: 'success',
+  processing: 'warning',
+  error: 'error',
+  terminated: 'default',
+};
+
+function AgentCard({ agent, onClick }: {
   agent: AgentInfoResponse;
-  onKill: () => void;
-  killPending: boolean;
+  onClick: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const persona = agent.persona;
   const provider = providerFromModel(agent.model);
   const toolCount = agent.tools?.length ?? 0;
+  const displayName = persona?.identity.name ?? agent.id;
+  const emoji = persona?.identity.emoji;
+  const role = persona?.identity.role;
+  const traits = persona?.soul.coreTraits.slice(0, 3);
+  const hasAutonomy = !!persona?.autonomy;
+  const hasMemory = !!persona?.memoryProtocol;
 
   return (
-    <div
-      className="rounded border border-gray-700 bg-gray-900"
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left rounded-lg border border-gray-700 bg-gray-900 p-3 transition-colors hover:border-gray-600 hover:bg-gray-800/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       data-testid="agent-list-item"
     >
-      <div className="flex items-center justify-between px-3 py-2">
+      {/* Header: emoji + name + status */}
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2 min-w-0">
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="text-gray-500 hover:text-gray-300 shrink-0"
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} agent ${agent.id}`}
-            data-testid={`expand-${agent.id}`}
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-          <StatusDot status={agent.status} />
-          <span className="text-sm font-medium text-gray-100 truncate">{agent.id}</span>
-          <span className="text-xs text-gray-400 truncate">{agent.model}</span>
-          <span className="shrink-0 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400" data-testid="provider-badge">
-            {provider}
-          </span>
-          {toolCount > 0 && (
-            <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-gray-500" data-testid="tool-count">
-              <Wrench size={10} />
-              {toolCount}
-            </span>
-          )}
+          {emoji && <span className="text-lg shrink-0">{emoji}</span>}
+          <span className="text-sm font-medium text-white truncate">{displayName}</span>
         </div>
-        <Button
-          size="sm"
-          variant="danger"
-          onClick={onKill}
-          disabled={killPending}
-          aria-label={`Kill agent ${agent.id}`}
-        >
-          <Trash2 size={14} />
-        </Button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StatusDot status={agent.status} />
+          <Badge variant={statusVariant[agent.status]} className="text-[10px]">{agent.status}</Badge>
+        </div>
       </div>
 
-      {expanded && (
-        <div className="border-t border-gray-800 px-3 py-2 space-y-2" data-testid={`details-${agent.id}`}>
-          {agent.systemPrompt && (
-            <div>
-              <span className="text-[10px] uppercase text-gray-500">System Prompt</span>
-              <p className="mt-0.5 text-xs text-gray-300 whitespace-pre-wrap line-clamp-4">
-                {agent.systemPrompt}
-              </p>
-            </div>
-          )}
-          {toolCount > 0 && (
-            <div>
-              <span className="text-[10px] uppercase text-gray-500">Tools</span>
-              <div className="mt-0.5 flex flex-wrap gap-1">
-                {agent.tools!.map((tool) => (
-                  <span key={tool} className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300">
-                    {tool}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="flex gap-4">
-            {agent.temperature != null && (
-              <div>
-                <span className="text-[10px] uppercase text-gray-500">Temperature</span>
-                <p className="text-xs text-gray-300">{agent.temperature}</p>
-              </div>
-            )}
-            {agent.maxTokens != null && (
-              <div>
-                <span className="text-[10px] uppercase text-gray-500">Max Tokens</span>
-                <p className="text-xs text-gray-300">{agent.maxTokens.toLocaleString()}</p>
-              </div>
-            )}
-          </div>
+      {/* Subtitle: role + model + provider */}
+      <div className="flex items-center gap-1.5 mb-2 text-[11px] text-gray-400">
+        {role && <span className="truncate">{role}</span>}
+        {role && <span className="text-gray-600">·</span>}
+        <span className="truncate">{agent.model}</span>
+        <span className="shrink-0 rounded bg-gray-800 px-1 py-0.5 text-[10px] text-gray-500" data-testid="provider-badge">
+          {provider}
+        </span>
+      </div>
+
+      {/* Trait badges */}
+      {traits && traits.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {traits.map((trait) => (
+            <span key={trait} className="rounded bg-blue-900/30 px-1.5 py-0.5 text-[10px] text-blue-300">
+              {trait}
+            </span>
+          ))}
         </div>
       )}
-    </div>
+
+      {/* Footer: tool count + capability indicators */}
+      <div className="flex items-center gap-3 text-[10px] text-gray-500">
+        {toolCount > 0 && (
+          <span className="flex items-center gap-0.5" data-testid="tool-count">
+            <Wrench size={10} />
+            {toolCount} tools
+          </span>
+        )}
+        {hasAutonomy && (
+          <span className="flex items-center gap-0.5 text-yellow-500" data-testid="autonomy-indicator">
+            <Zap size={10} />
+            autonomous
+          </span>
+        )}
+        {hasMemory && (
+          <span className="flex items-center gap-0.5 text-purple-400" data-testid="memory-indicator">
+            <Brain size={10} />
+            memory
+          </span>
+        )}
+      </div>
+    </button>
   );
 }
 
 export function AgentList() {
   const { data: agents = [], isLoading } = useAgents();
   const killAgent = useKillAgent();
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
 
   if (isLoading) {
     return (
@@ -120,28 +119,39 @@ export function AgentList() {
   }
 
   return (
-    <Card data-testid="agent-list">
-      <h4 className="mb-3 text-sm font-medium text-gray-300">
-        Running Agents
-        <span className="ml-2 rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-300" data-testid="agent-count">
-          {agents.length}
-        </span>
-      </h4>
-      {agents.length === 0 ? (
-        <p className="text-sm text-gray-500">No agents running</p>
-      ) : (
-        <div className="space-y-2">
-          {agents.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              onKill={() => killAgent.mutate(agent.id)}
-              killPending={killAgent.isPending}
-            />
-          ))}
-        </div>
-      )}
-      {killAgent.isError && <p className="mt-2 text-xs text-red-400">Error: {killAgent.error.message}</p>}
-    </Card>
+    <>
+      <Card data-testid="agent-list">
+        <h4 className="mb-3 text-sm font-medium text-gray-300">
+          Running Agents
+          <span className="ml-2 rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-300" data-testid="agent-count">
+            {agents.length}
+          </span>
+        </h4>
+        {agents.length === 0 ? (
+          <p className="text-sm text-gray-500">No agents running</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {agents.map((agent) => (
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                onClick={() => setSelectedAgentId(agent.id)}
+              />
+            ))}
+          </div>
+        )}
+        {killAgent.isError && <p className="mt-2 text-xs text-red-400">Error: {killAgent.error.message}</p>}
+      </Card>
+
+      <AgentDetailDrawer
+        agent={selectedAgent}
+        onClose={() => setSelectedAgentId(null)}
+        onKill={(id) => {
+          killAgent.mutate(id);
+          setSelectedAgentId(null);
+        }}
+        killPending={killAgent.isPending}
+      />
+    </>
   );
 }

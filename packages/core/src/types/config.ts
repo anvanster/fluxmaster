@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CopilotConfigSchema } from './auth.js';
 import { ToolSecurityPolicySchema } from './tool-security.js';
 import { BudgetConfigSchema } from './budget.js';
+import { PersonaSchema } from './persona.js';
 
 export const McpServerConfigSchema = z.object({
   name: z.string().min(1),
@@ -33,6 +34,8 @@ const AgentConfigSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   temperature: z.number().min(0).max(2).optional(),
   mcpServers: z.array(McpServerConfigSchema).default([]),
+  persona: PersonaSchema.optional(),
+  personaRef: z.string().optional(),
 });
 
 const RetryConfigSchema = z.object({
@@ -93,6 +96,7 @@ export const FluxmasterConfigSchema = z.object({
   aiFeatures: AiFeatureConfigSchema,
   security: ToolSecurityPolicySchema,
   budgets: BudgetConfigSchema,
+  personas: z.record(PersonaSchema).optional(),
 });
 
 export type FluxmasterConfig = z.infer<typeof FluxmasterConfigSchema>;

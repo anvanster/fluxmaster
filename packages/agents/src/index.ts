@@ -11,3 +11,8 @@ export type { IModelAdapter, SendMessageOptions, ModelResponse, AdapterMessage, 
 export { createDelegateTool } from './tools/index.js';
 export { ScratchpadManager, createScratchpadTools, TaskBoard, createTaskBoardTools, createFanOutTool } from './collaboration/index.js';
 export type { TaskItem } from './collaboration/index.js';
+export { buildSystemPrompt } from './prompt-builder.js';
+export type { PromptContext, MemoryEntry, ActiveGoal } from './prompt-builder.js';
+export { runGoalLoop } from './goal-loop.js';
+export type { GoalLoopOptions, GoalLoopResult } from './goal-loop.js';
+export { createMemoryTools } from './memory/memory-tools.js';
