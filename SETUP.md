@@ -70,6 +70,8 @@ export GOOGLE_API_KEY=...
 
 ```bash
 npm run fluxmaster -- auth status
+npx copilot-api@latest start --port 4141 --account-type individual --proxy-env
+
 ```
 
 Example output:

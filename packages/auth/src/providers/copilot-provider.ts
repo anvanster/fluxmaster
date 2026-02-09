@@ -45,11 +45,16 @@ export class CopilotAuthProvider implements IAuthProvider {
       'start',
       '--account-type', this.config.accountType,
       '--port', String(this.config.port),
+      '--proxy-env',
     ];
 
     if (this.config.rateLimit) {
       args.push('--rate-limit', String(this.config.rateLimit));
       args.push('--wait');
+    }
+
+    if (process.env.http_proxy || process.env.https_proxy || process.env.HTTP_PROXY || process.env.HTTPS_PROXY) {
+      args.push('--proxy-env');
     }
 
     const env: Record<string, string> = { ...process.env as Record<string, string> };
@@ -63,6 +68,7 @@ export class CopilotAuthProvider implements IAuthProvider {
       stdio: ['ignore', 'pipe', 'pipe'],
       env,
       detached: false,
+      shell: process.platform === 'win32',
     });
 
     this.process.stdout?.on('data', (data: Buffer) => {
