@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { loadConfig, EventBus, type FluxmasterConfig, type Provider } from '@fluxmaster/core';
 import { AuthManager } from '@fluxmaster/auth';
-import { AgentManager, createDelegateTool } from '@fluxmaster/agents';
+import { AgentManager, createDelegateTool, ScratchpadManager, createScratchpadTools, TaskBoard, createTaskBoardTools, createFanOutTool } from '@fluxmaster/agents';
 import { createDefaultRegistry, McpServerManager, BrowserManager, createBrowserTools, PluginLoader } from '@fluxmaster/tools';
 import type { AppContext } from './context.js';
 import { UsageTracker } from './usage-tracker.js';
@@ -87,8 +87,27 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
       toolSecurityManager.recordExecution(agentId, toolName),
   });
 
-  // Register delegate tool for inter-agent communication
-  toolRegistry.register(createDelegateTool(agentManager));
+  // Create collaboration managers
+  const scratchpadManager = new ScratchpadManager();
+  const taskBoard = new TaskBoard();
+
+  // Register delegate tool with scratchpad context support
+  toolRegistry.register(createDelegateTool(agentManager, {
+    scratchpadManager,
+    conversationId: 'default',
+    eventBus,
+  }));
+
+  // Register fan_out tool for parallel delegation
+  toolRegistry.register(createFanOutTool(agentManager, { eventBus }));
+
+  // Register scratchpad and task board tools
+  for (const tool of createScratchpadTools(scratchpadManager, 'default', { eventBus })) {
+    toolRegistry.register(tool);
+  }
+  for (const tool of createTaskBoardTools(taskBoard, 'default', { eventBus })) {
+    toolRegistry.register(tool);
+  }
 
   await agentManager.initializeMcp();
 
@@ -158,6 +177,8 @@ export async function bootstrap(options: BootstrapOptions): Promise<AppContext> 
     budgetManager,
     workflowStore,
     workflowEngine,
+    scratchpadManager,
+    taskBoard,
     agentModels,
     agentProviders,
   };

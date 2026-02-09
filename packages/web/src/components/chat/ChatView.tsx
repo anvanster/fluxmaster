@@ -8,14 +8,17 @@ import { ChatMessageList } from './ChatMessageList';
 import { ChatInput } from './ChatInput';
 import { ExportMenu } from './ExportMenu';
 import { SuggestedFollowUps } from './SuggestedFollowUps';
+import { ActivityFeed } from './ActivityFeed';
 import { DebugPanel } from '@/components/debug/DebugPanel';
 import { Button } from '@/components/common/Button';
-import { Trash2, Bug } from 'lucide-react';
+import { useOrchestrationStore } from '@/stores/orchestration-store';
+import { Trash2, Bug, Activity } from 'lucide-react';
 
 export function ChatView() {
   const { activeAgentId, conversations, streaming, suggestions, setActiveAgent, clearConversation, importConversation } = useChatStore();
   const debugPanelOpen = useDebugStore((s) => s.debugPanelOpen);
   const toggleDebugPanel = useDebugStore((s) => s.toggleDebugPanel);
+  const toggleActivityFeed = useOrchestrationStore((s) => s.toggleActivityFeed);
   const { data: agents = [] } = useAgents();
   const { sendMessage } = useChat();
 
@@ -41,6 +44,15 @@ export function ChatView() {
           <Button
             variant="ghost"
             size="sm"
+            onClick={toggleActivityFeed}
+            aria-label="Toggle activity feed"
+            data-testid="activity-toggle"
+          >
+            <Activity size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={toggleDebugPanel}
             aria-label="Toggle debug panel"
             data-testid="debug-toggle"
@@ -61,6 +73,7 @@ export function ChatView() {
         </div>
       </div>
       <ChatMessageList messages={messages} streamingStates={streaming} />
+      <ActivityFeed />
       {!isStreaming && currentSuggestions.length > 0 && (
         <SuggestedFollowUps suggestions={currentSuggestions} onSelect={sendMessage} />
       )}

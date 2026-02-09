@@ -26,7 +26,14 @@ export type FluxmasterEvent =
   | { type: 'workflow:step_completed'; workflowId: string; runId: string; stepId: string; output?: string; timestamp: Date }
   | { type: 'workflow:step_failed'; workflowId: string; runId: string; stepId: string; error: string; timestamp: Date }
   | { type: 'workflow:completed'; workflowId: string; runId: string; timestamp: Date }
-  | { type: 'workflow:failed'; workflowId: string; runId: string; error: string; timestamp: Date };
+  | { type: 'workflow:failed'; workflowId: string; runId: string; error: string; timestamp: Date }
+  | { type: 'orchestration:delegation_started'; sourceAgentId: string; targetAgentId: string; requestId: string; message: string; timestamp: Date }
+  | { type: 'orchestration:delegation_completed'; sourceAgentId: string; targetAgentId: string; requestId: string; durationMs: number; success: boolean; timestamp: Date }
+  | { type: 'orchestration:fanout_started'; sourceAgentId: string; targetAgentIds: string[]; requestId: string; timestamp: Date }
+  | { type: 'orchestration:fanout_completed'; sourceAgentId: string; targetAgentIds: string[]; requestId: string; results: Array<{ agentId: string; success: boolean }>; durationMs: number; timestamp: Date }
+  | { type: 'orchestration:scratchpad_updated'; agentId: string; key: string; action: 'write' | 'delete'; timestamp: Date }
+  | { type: 'orchestration:task_created'; agentId: string; taskId: string; title: string; assignee?: string; timestamp: Date }
+  | { type: 'orchestration:task_status_changed'; agentId: string; taskId: string; status: string; timestamp: Date };
 
 export type FluxmasterEventType = FluxmasterEvent['type'];
 

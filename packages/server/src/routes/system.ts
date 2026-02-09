@@ -2,6 +2,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { listCopilotModels, inferProvider, getCopilotMultiplier } from '@fluxmaster/auth';
 import type { AppContext } from '../context.js';
 import type { HealthResponse, UsageResponse, CostResponse, ModelInfo } from '../shared/api-types.js';
+import { AGENT_PRESETS, listPresets } from '../presets/index.js';
+import { WORKFLOW_TEMPLATES, listWorkflowTemplates } from '../presets/index.js';
 
 const startTime = Date.now();
 
@@ -43,6 +45,25 @@ export function systemRoutes(ctx: AppContext): FastifyPluginAsync {
         byAgent: ctx.costCalculator.getProviderAwareBreakdown(ctx.agentProviders),
       };
       return response;
+    });
+
+    // GET /api/presets — list agent role presets
+    fastify.get('/presets', async () => {
+      return listPresets().map((role) => ({
+        role,
+        ...AGENT_PRESETS[role],
+      }));
+    });
+
+    // GET /api/workflow-templates — list workflow templates
+    fastify.get('/workflow-templates', async () => {
+      return listWorkflowTemplates().map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        inputs: t.inputs,
+        stepCount: t.steps.length,
+      }));
     });
   };
 }

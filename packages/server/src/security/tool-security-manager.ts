@@ -9,8 +9,8 @@ const PERMISSION_RANK: Record<ToolPermissionLevel, number> = {
   dangerous: 2,
 };
 
-const FILE_TOOLS = new Set(['read_file', 'write_file', 'list_files']);
-const NETWORK_TOOLS = new Set(['browser_navigate', 'browser_click', 'browser_fill', 'browser_get_text']);
+const FILE_TOOLS = new Set(['read_file', 'write_file', 'list_files', 'edit_file', 'search_text', 'search_files']);
+const NETWORK_TOOLS = new Set(['browser_navigate', 'browser_click', 'browser_fill', 'browser_get_text', 'http_request']);
 
 export interface SecurityCheckResult {
   allowed: boolean;

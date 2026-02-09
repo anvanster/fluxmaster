@@ -1,6 +1,37 @@
 import { formatDuration, formatTokens, formatDate } from '@/lib/utils';
 import { ToolCallBar } from './ToolCallBar';
 import type { RequestDetailResponse } from '@fluxmaster/api-types';
+import { useOrchestrationStore } from '@/stores/orchestration-store';
+
+function DelegationChain({ requestStartedAt, totalDurationMs }: { requestStartedAt: number; totalDurationMs: number }) {
+  const activities = useOrchestrationStore((s) => s.activities);
+
+  const delegations = activities.filter(
+    (a) =>
+      (a.kind === 'delegation_completed' || a.kind === 'fanout_completed') &&
+      a.timestamp.getTime() >= requestStartedAt &&
+      a.timestamp.getTime() <= requestStartedAt + totalDurationMs + 1000,
+  );
+
+  if (delegations.length === 0) return null;
+
+  return (
+    <div className="space-y-1" data-testid="delegation-chain">
+      <div className="text-xs text-gray-500 mb-2">Delegation Chain</div>
+      {delegations.map((d) => (
+        <div key={d.id} className="flex items-center gap-2 text-xs text-gray-400">
+          <span className="text-blue-400">{d.sourceAgentId ?? 'coordinator'}</span>
+          <span>\u2192</span>
+          <span className="text-blue-400">{d.targetAgentId ?? d.targetAgentIds?.join(', ')}</span>
+          {d.data?.durationMs != null && (
+            <span className="text-gray-500">({formatDuration(d.data.durationMs as number)})</span>
+          )}
+          {d.data?.success === false && <span className="text-red-400">failed</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface RequestTimelineProps {
   request: RequestDetailResponse;
@@ -78,6 +109,9 @@ export function RequestTimeline({ request }: RequestTimelineProps) {
           ))}
         </div>
       )}
+
+      {/* Delegation chain */}
+      <DelegationChain requestStartedAt={startedAt} totalDurationMs={totalDurationMs} />
 
       {/* Error message */}
       {request.errorMessage && (

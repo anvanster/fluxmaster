@@ -9,3 +9,5 @@ export { SessionManager } from './session/index.js';
 export { AnthropicAdapter, OpenAIAdapter } from './adapters/index.js';
 export type { IModelAdapter, SendMessageOptions, ModelResponse, AdapterMessage, StreamEvent } from './adapters/index.js';
 export { createDelegateTool } from './tools/index.js';
+export { ScratchpadManager, createScratchpadTools, TaskBoard, createTaskBoardTools, createFanOutTool } from './collaboration/index.js';
+export type { TaskItem } from './collaboration/index.js';

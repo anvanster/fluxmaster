@@ -40,6 +40,28 @@ vi.mock('@fluxmaster/agents', () => ({
     schema: {},
     execute: vi.fn(),
   }),
+  ScratchpadManager: vi.fn().mockImplementation(() => ({
+    set: vi.fn(),
+    get: vi.fn(),
+    list: vi.fn().mockReturnValue([]),
+    delete: vi.fn(),
+    clear: vi.fn(),
+  })),
+  createScratchpadTools: vi.fn().mockReturnValue([]),
+  TaskBoard: vi.fn().mockImplementation(() => ({
+    create: vi.fn(),
+    update: vi.fn(),
+    list: vi.fn().mockReturnValue([]),
+    get: vi.fn(),
+    clear: vi.fn(),
+  })),
+  createTaskBoardTools: vi.fn().mockReturnValue([]),
+  createFanOutTool: vi.fn().mockReturnValue({
+    name: 'fan_out',
+    description: 'Fan out to multiple agents',
+    schema: {},
+    execute: vi.fn(),
+  }),
 }));
 
 const mockStopAll = vi.fn().mockResolvedValue(undefined);

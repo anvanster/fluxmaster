@@ -5,6 +5,7 @@ export interface ToolCallInfo {
   status: 'pending' | 'done' | 'error';
   result?: string;
   isError?: boolean;
+  args?: Record<string, unknown>;
 }
 
 export interface ChatMessage {
@@ -31,7 +32,7 @@ interface ChatState {
   addUserMessage: (agentId: string, id: string, text: string) => void;
   startStream: (requestId: string) => void;
   appendStreamDelta: (requestId: string, text: string) => void;
-  addStreamToolCall: (requestId: string, toolName: string) => void;
+  addStreamToolCall: (requestId: string, toolName: string, args?: Record<string, unknown>) => void;
   updateStreamToolResult: (requestId: string, toolName: string, result: string, isError: boolean) => void;
   finalizeStream: (agentId: string, requestId: string, text: string) => void;
   clearConversation: (agentId: string) => void;
@@ -74,14 +75,14 @@ export const useChatStore = create<ChatState>((set) => ({
       return { streaming };
     }),
 
-  addStreamToolCall: (requestId, toolName) =>
+  addStreamToolCall: (requestId, toolName, args) =>
     set((state) => {
       const streaming = new Map(state.streaming);
       const current = streaming.get(requestId);
       if (current) {
         streaming.set(requestId, {
           ...current,
-          toolCalls: [...current.toolCalls, { name: toolName, status: 'pending' }],
+          toolCalls: [...current.toolCalls, { name: toolName, status: 'pending', args }],
         });
       }
       return { streaming };

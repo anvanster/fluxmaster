@@ -8,16 +8,41 @@ export type ToolPermissionLevel = z.infer<typeof ToolPermissionLevelSchema>;
 // --- Default tool classifications ---
 
 export const DEFAULT_TOOL_LEVELS: Record<string, ToolPermissionLevel> = {
+  // Filesystem — read-only
   read_file: 'public',
   list_files: 'public',
-  delegate_to_agent: 'public',
+  search_text: 'public',
+  search_files: 'public',
+  // Filesystem — mutation
+  write_file: 'restricted',
+  edit_file: 'restricted',
+  // Git — read-only
+  git_status: 'public',
+  git_diff: 'public',
+  git_log: 'public',
+  // Git — mutation
+  git_commit: 'restricted',
+  git_branch: 'restricted',
+  // Shell
+  bash_execute: 'dangerous',
+  // Network
+  http_request: 'restricted',
+  // Browser
   browser_get_text: 'public',
   browser_screenshot: 'public',
-  write_file: 'restricted',
   browser_navigate: 'restricted',
   browser_click: 'restricted',
   browser_fill: 'restricted',
-  bash_execute: 'dangerous',
+  // Collaboration — read-only
+  delegate_to_agent: 'public',
+  fan_out: 'public',
+  scratchpad_read: 'public',
+  scratchpad_list: 'public',
+  task_list: 'public',
+  // Collaboration — mutation
+  scratchpad_write: 'restricted',
+  task_create: 'restricted',
+  task_update: 'restricted',
 };
 
 // --- Agent-level permission overrides ---

@@ -10,7 +10,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npx vite --port 5199',
+    command: 'API_PORT=4000 npx vite --port 5199',
     cwd: './packages/web',
     port: 5199,
     reuseExistingServer: true,

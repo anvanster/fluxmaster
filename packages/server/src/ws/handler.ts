@@ -4,6 +4,24 @@ import type { WsClientMessage, WsServerMessage } from '../shared/ws-types.js';
 import { ConnectionManager } from './connection-manager.js';
 import { meterUsage } from '../cost-metering.js';
 
+const SENSITIVE_KEYS = /password|token|key|secret|credential|auth/i;
+const MAX_ARG_VALUE_LENGTH = 200;
+
+function sanitizeToolArgs(input: unknown): Record<string, unknown> | undefined {
+  if (!input || typeof input !== 'object') return undefined;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (SENSITIVE_KEYS.test(key)) {
+      result[key] = '[REDACTED]';
+    } else if (typeof value === 'string' && value.length > MAX_ARG_VALUE_LENGTH) {
+      result[key] = value.slice(0, MAX_ARG_VALUE_LENGTH) + '...';
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export class WsHandler {
   private ctx: AppContext;
   readonly connections: ConnectionManager;
@@ -81,7 +99,8 @@ export class WsHandler {
             socket.send(JSON.stringify(delta));
             eventBus.emit({ type: 'message:text_delta', agentId, requestId, text: event.text, timestamp: new Date() });
           } else if (event.type === 'tool_use_start' && event.toolUse) {
-            const toolStart: WsServerMessage = { type: 'tool_use_start', toolName: event.toolUse.name, requestId };
+            const sanitizedArgs = sanitizeToolArgs(event.toolUse.input);
+            const toolStart: WsServerMessage = { type: 'tool_use_start', toolName: event.toolUse.name, requestId, args: sanitizedArgs };
             socket.send(JSON.stringify(toolStart));
             eventBus.emit({ type: 'tool:call_started', agentId, requestId, toolName: event.toolUse.name, timestamp: new Date() });
           } else if (event.type === 'tool_use_end' && event.toolUse) {

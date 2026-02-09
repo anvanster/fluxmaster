@@ -38,6 +38,27 @@ export class WsEventBridge {
       this.eventBus.on('budget:request_blocked', (event) => {
         this.broadcast({ type: 'budget_event', event: 'request_blocked', budgetId: event.budgetId, currentCost: event.currentCost, maxCost: event.maxCost, agentId: event.agentId });
       }),
+      this.eventBus.on('orchestration:delegation_started', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'delegation_started', sourceAgentId: event.sourceAgentId, targetAgentId: event.targetAgentId, data: { requestId: event.requestId, message: event.message }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:delegation_completed', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'delegation_completed', sourceAgentId: event.sourceAgentId, targetAgentId: event.targetAgentId, data: { requestId: event.requestId, durationMs: event.durationMs, success: event.success }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:fanout_started', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'fanout_started', sourceAgentId: event.sourceAgentId, targetAgentIds: event.targetAgentIds, data: { requestId: event.requestId }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:fanout_completed', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'fanout_completed', sourceAgentId: event.sourceAgentId, targetAgentIds: event.targetAgentIds, data: { requestId: event.requestId, results: event.results, durationMs: event.durationMs }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:scratchpad_updated', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'scratchpad_updated', data: { agentId: event.agentId, key: event.key, action: event.action }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:task_created', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'task_created', data: { agentId: event.agentId, taskId: event.taskId, title: event.title, assignee: event.assignee }, timestamp: event.timestamp.toISOString() });
+      }),
+      this.eventBus.on('orchestration:task_status_changed', (event) => {
+        this.broadcast({ type: 'orchestration_event', event: 'task_status_changed', data: { agentId: event.agentId, taskId: event.taskId, status: event.status }, timestamp: event.timestamp.toISOString() });
+      }),
     );
   }
 

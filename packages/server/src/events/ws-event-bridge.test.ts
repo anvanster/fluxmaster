@@ -167,6 +167,117 @@ describe('WsEventBridge', () => {
     expect(cm.broadcast).toHaveBeenCalledOnce();
   });
 
+  it('broadcasts orchestration:delegation_started events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:delegation_started', sourceAgentId: 'coordinator', targetAgentId: 'researcher', requestId: 'del-1', message: 'Find info', timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('delegation_started');
+    expect(msg.sourceAgentId).toBe('coordinator');
+    expect(msg.targetAgentId).toBe('researcher');
+    expect(msg.data.message).toBe('Find info');
+  });
+
+  it('broadcasts orchestration:delegation_completed events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:delegation_completed', sourceAgentId: 'coordinator', targetAgentId: 'researcher', requestId: 'del-1', durationMs: 1500, success: true, timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('delegation_completed');
+    expect(msg.data.success).toBe(true);
+    expect(msg.data.durationMs).toBe(1500);
+  });
+
+  it('broadcasts orchestration:fanout_started events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:fanout_started', sourceAgentId: 'coordinator', targetAgentIds: ['a1', 'a2'], requestId: 'fan-1', timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('fanout_started');
+    expect(msg.targetAgentIds).toEqual(['a1', 'a2']);
+  });
+
+  it('broadcasts orchestration:fanout_completed events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:fanout_completed', sourceAgentId: 'coordinator', targetAgentIds: ['a1', 'a2'], requestId: 'fan-1', results: [{ agentId: 'a1', success: true }, { agentId: 'a2', success: false }], durationMs: 2000, timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('fanout_completed');
+    expect(msg.data.results).toHaveLength(2);
+    expect(msg.data.durationMs).toBe(2000);
+  });
+
+  it('broadcasts orchestration:scratchpad_updated events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:scratchpad_updated', agentId: 'researcher', key: 'findings', action: 'write', timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('scratchpad_updated');
+    expect(msg.data.key).toBe('findings');
+    expect(msg.data.action).toBe('write');
+  });
+
+  it('broadcasts orchestration:task_created events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:task_created', agentId: 'coordinator', taskId: 't1', title: 'Fix bug', assignee: 'coder', timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('task_created');
+    expect(msg.data.title).toBe('Fix bug');
+    expect(msg.data.assignee).toBe('coder');
+  });
+
+  it('broadcasts orchestration:task_status_changed events', () => {
+    const bus = new EventBus();
+    const cm = createMockConnectionManager();
+    const bridge = new WsEventBridge(bus, cm);
+    bridge.start();
+
+    bus.emit({ type: 'orchestration:task_status_changed', agentId: 'coder', taskId: 't1', status: 'completed', timestamp: new Date() });
+
+    expect(cm.broadcast).toHaveBeenCalledOnce();
+    const msg = JSON.parse((cm.broadcast as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+    expect(msg.type).toBe('orchestration_event');
+    expect(msg.event).toBe('task_status_changed');
+    expect(msg.data.status).toBe('completed');
+  });
+
   it('broadcasts message:completed events', () => {
     const bus = new EventBus();
     const cm = createMockConnectionManager();

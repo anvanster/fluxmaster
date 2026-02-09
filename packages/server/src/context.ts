@@ -1,6 +1,6 @@
 import type { FluxmasterConfig, EventBus, IConversationStore, IRequestStore, IToolAuditStore, IBudgetStore, IWorkflowStore, Provider } from '@fluxmaster/core';
 import type { AuthManager } from '@fluxmaster/auth';
-import type { AgentManager } from '@fluxmaster/agents';
+import type { AgentManager, ScratchpadManager, TaskBoard } from '@fluxmaster/agents';
 import type { ToolRegistry, McpServerManager } from '@fluxmaster/tools';
 import type { UsageTracker } from './usage-tracker.js';
 import type { CostCalculator } from './cost-calculator.js';
@@ -27,6 +27,8 @@ export interface AppContext {
   budgetManager: BudgetManager;
   workflowStore: IWorkflowStore;
   workflowEngine: WorkflowEngine;
+  scratchpadManager: ScratchpadManager;
+  taskBoard: TaskBoard;
   agentModels: Map<string, string>;
   agentProviders: Map<string, Provider>;
 }

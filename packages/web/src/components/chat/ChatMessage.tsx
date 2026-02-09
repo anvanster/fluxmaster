@@ -28,7 +28,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="mt-2 space-y-1">
             {message.toolCalls.map((tc, i) => (
-              <ToolCallIndicator key={i} name={tc.name} status={tc.status} result={tc.result} isError={tc.isError} />
+              <ToolCallIndicator key={i} name={tc.name} status={tc.status} result={tc.result} isError={tc.isError} args={tc.args} />
             ))}
           </div>
         )}

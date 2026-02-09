@@ -30,7 +30,7 @@ export function ChatMessageList({ messages, streamingStates }: ChatMessageListPr
         <ChatMessage key={msg.id} message={msg} />
       ))}
       {activeStreams.map(([requestId, stream]) => (
-        <StreamingText key={requestId} text={stream.text} />
+        <StreamingText key={requestId} text={stream.text} toolCalls={stream.toolCalls} />
       ))}
       <div ref={bottomRef} />
     </div>
