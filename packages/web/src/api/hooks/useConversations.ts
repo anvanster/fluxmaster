@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/api/client';
-import type { ConversationListResponse, ConversationSummaryResponse } from '@fluxmaster/api-types';
+import type { ConversationListResponse, ConversationSummaryResponse, ConversationMessagesResponse } from '@fluxmaster/api-types';
 
 export function useConversations(agentId: string) {
   return useQuery({
@@ -15,6 +15,15 @@ export function useConversation(conversationId: string | null) {
   return useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => apiFetch<ConversationSummaryResponse>(`/conversations/${conversationId}`),
+    enabled: !!conversationId,
+  });
+}
+
+export function useConversationMessages(conversationId: string | null) {
+  return useQuery({
+    queryKey: ['conversation-messages', conversationId],
+    queryFn: () =>
+      apiFetch<ConversationMessagesResponse>(`/conversations/${conversationId}/messages`),
     enabled: !!conversationId,
   });
 }

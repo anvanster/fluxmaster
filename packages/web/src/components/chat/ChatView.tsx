@@ -12,7 +12,8 @@ import { ActivityFeed } from './ActivityFeed';
 import { DebugPanel } from '@/components/debug/DebugPanel';
 import { Button } from '@/components/common/Button';
 import { useOrchestrationStore } from '@/stores/orchestration-store';
-import { Trash2, Bug, Activity } from 'lucide-react';
+import { useRestoreChat } from '@/hooks/useRestoreChat';
+import { Trash2, Bug, Activity, Loader2 } from 'lucide-react';
 
 export function ChatView() {
   const { activeAgentId, conversations, streaming, suggestions, setActiveAgent, clearConversation, importConversation } = useChatStore();
@@ -21,6 +22,7 @@ export function ChatView() {
   const toggleActivityFeed = useOrchestrationStore((s) => s.toggleActivityFeed);
   const { data: agents = [] } = useAgents();
   const { sendMessage } = useChat();
+  const { isRestoring } = useRestoreChat(activeAgentId);
 
   // Auto-select first agent if current one doesn't exist
   useEffect(() => {
@@ -72,7 +74,14 @@ export function ChatView() {
           )}
         </div>
       </div>
-      <ChatMessageList messages={messages} streamingStates={streaming} />
+      {isRestoring ? (
+        <div className="flex flex-1 items-center justify-center text-gray-500" data-testid="chat-restoring">
+          <Loader2 size={16} className="mr-2 animate-spin" />
+          Restoring conversation…
+        </div>
+      ) : (
+        <ChatMessageList messages={messages} streamingStates={streaming} />
+      )}
       <ActivityFeed />
       {!isStreaming && currentSuggestions.length > 0 && (
         <SuggestedFollowUps suggestions={currentSuggestions} onSelect={sendMessage} />

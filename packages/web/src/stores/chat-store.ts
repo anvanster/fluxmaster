@@ -41,13 +41,18 @@ interface ChatState {
   setSuggestions: (requestId: string, suggestions: string[]) => void;
 }
 
+const STORAGE_KEY = 'fluxmaster:activeAgentId';
+
 export const useChatStore = create<ChatState>((set) => ({
-  activeAgentId: 'default',
+  activeAgentId: localStorage.getItem(STORAGE_KEY) ?? 'default',
   conversations: new Map(),
   streaming: new Map(),
   suggestions: new Map(),
 
-  setActiveAgent: (id) => set({ activeAgentId: id }),
+  setActiveAgent: (id) => {
+    localStorage.setItem(STORAGE_KEY, id);
+    set({ activeAgentId: id });
+  },
 
   addUserMessage: (agentId, id, text) =>
     set((state) => {
